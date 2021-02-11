@@ -12,8 +12,8 @@ Roll number: IMT2018523
 -----------------------------
 
 ### Progress
-1. GUI - semi-complete
-2. Instruction data structure - incomplete
+1. GUI - semi-complete; to be linked
+2. Instruction data structure - initially complete. Might have to add on features later
 3. Reservation Station - complete
 4. ROB - started
 5. Load/Store buffer - incomplete

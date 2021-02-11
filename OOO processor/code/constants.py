@@ -1,21 +1,30 @@
 class NumCycles:
     ADD = 1
-    LOAD = 5
-    MULT = 10
+    SUB = 1
+    LW = 5
+    MUL = 10
     DIV = 40
 
 
 class Register:
-    R1 = "R1"
-    R2 = "R2"
-    R3 = "R3"
-    R4 = "R4"
-    R5 = "R5"
-    R6 = "R6"
-    R7 = "R7"
-    R8 = "R8"
-    R9 = "R9"
-    R10 = "R10"
+    R1 = "00001"
+    R2 = "00010"
+    R3 = "00011"
+    R4 = "00100"
+    R5 = "00101"
+    R6 = "00110"
+    R7 = "00111"
+    R8 = "01000"
+    R9 = "01001"
+    R10 = "01010"
+
+
+class ARF(Register):
+    pass
+
+
+class RAT(Register):
+    pass
 
 
 class ROB:
@@ -31,3 +40,7 @@ class ROB:
 
 ADD_SUB = "ADD/SUB"
 MUL_DIV = "MUL/DIV"
+
+
+if __name__ == "__main__":
+    print(f"{ARF.R1}")
