@@ -1,9 +1,7 @@
-from exceptions import AlreadyExistsException
 from constants import DEBUG
 
 class ReservationStationEntry:
-    def __init__(self, id=None, instr="", busy=True):
-        self._id = id
+    def __init__(self, instr, busy=True):
         self._instruction = instr
         self._busy = busy
         self._dest = instr.rd.getReg()
@@ -19,9 +17,6 @@ class ReservationStationEntry:
 
     def toggleState(self):
         self._busy = not self._busy
-
-    def getID(self):
-        return self._id
 
     def isBusy(self):
         return self._busy
@@ -46,66 +41,57 @@ class ReservationStation:
         self._type = datatype
         self._is_full = False
         self._size = size
-        self._buffer = [ReservationStationEntry() for _ in range(size)]
-        self._next_index = 0
+        self._buffer = [None for _ in range(size)]
+        self._index = 0
 
     def __updateFreeIndex(self):
-        self._next_index = (self._next_index + 1) % self._size
-        self._is_full = False
         counter = 0
-
-        while(self._buffer[self._next_index].isBusy()
-                and counter < self._size):
-            self._next_index = (self._next_index + 1) % self._size
+        while(counter < self._size):
+            self._index = (self._index + 1) % self._size
+            if self._buffer[self._index] is None:
+                break
             counter += 1
 
         if counter == self._size:
             self._is_full = True
-            self._next_index = -1
-
-    def __isValidID(self, id, newEntry=False):
-        for entry in self._buffer:
-            if id == entry.getID():
-                return False if newEntry else True
-
-        return True if newEntry else False
-
-    def __getIndexFromID(self, id):
-        counter = 0
-
-        while counter < self._size:
-            if self._buffer[counter].getID() == id:
-                return counter
-            counter += 1
-
-        return False
-
-    def addEntry(self, entry):
-        if self._is_full:
-            return self._is_full
-
-        if self.__isValidID(entry.getID(), newEntry=True):
-            self._buffer[self._next_index] = entry
-            
-            if DEBUG:
-                print(f"Added entry {entry.getID()} at {self._next_index}")
-            
-            self.__updateFreeIndex()
+            self._index = -1
         else:
-            raise AlreadyExistsException(entry)
+            self._is_full = False
+
+    def addEntry(self, instruction):
+        if self._is_full:
+            if DEBUG:
+                print("Reservation station is full")
+            return False
+
+        if isinstance(instruction, Instruction):
+            entry = ReservationStationEntry(instruction)
+        elif isinstance(instruction, ReservationStationEntry):
+            entry = instruction
+        else:
+            return False
+
+        self._buffer[self._index] = entry
+        if DEBUG:
+            print(f"Added at RS{self._index + 1}")
+
+        self.__updateFreeIndex()
+        return entry
 
     def removeEntry(self, entry):
-        id = entry.getID()
+        if not isinstance(entry, ReservationStationEntry):
+            return False
 
-        if self.__isValidID(id):
-            index = self.__getIndexFromID(id)
-            self._buffer[index] = ReservationStationEntry()
+        if entry in self._buffer:
+            location = self._buffer.index(entry)
+            self._buffer[location] = None
+            self.__updateFreeIndex()
 
             if DEBUG:
-                print(f"Removed entry {id} at {index}")
-
-            if self._is_full:
-                self.__updateFreeIndex()
+                print(f"Removed from RS{location + 1}")
+            return True
+        else:
+            return False
 
     def getFreeState(self):
         return self._is_full
@@ -114,27 +100,23 @@ class ReservationStation:
         return f"""Reservation Station for {self._type}.
                     Station Size: {self._size}
                     Busy State: {self.getBusyState()}
-                    Next Index: {self._next_index}"""
+                """
 
 
 if __name__ == "__main__":
-    obj = ReservationStationEntry(
-        1, "ADD", True, "ROB1", "R1", "R2", "10", "20")
-    obj1 = ReservationStationEntry(
-        2, "SUB", True, "ROB1", "R3", "R2", "10", "20")
-    obj2 = ReservationStationEntry(
-        3, "SUB", True, "ROB1", "R3", "R2", "10", "20")
-    obj3 = ReservationStationEntry(
-        4, "SUB", True, "ROB1", "R3", "R2", "10", "20")
-
+    from instruction import Instruction
     from constants import ADD_SUB
+
+    add_r9_r20_r21 = "0000 0001 0101 1010 0000 0100 1011 0011"
+    inst = Instruction.segment(add_r9_r20_r21)
 
     addResvStation = ReservationStation(ADD_SUB, 3)
 
-    for entry in [obj, obj1, obj2, obj3, obj2]:
-        try:
-            addResvStation.addEntry(entry)
-            if entry == obj2:
-                addResvStation.removeEntry(obj1)
-        except AlreadyExistsException:
-            print(f"Entry already exists: {entry.getID()}")
+    entry1 = addResvStation.addEntry(inst)
+    entry2 = addResvStation.addEntry(inst)
+    entry3 = addResvStation.addEntry(inst)
+    entry4 = addResvStation.addEntry(inst)
+    addResvStation.removeEntry(entry2)
+    entry5 = addResvStation.addEntry(inst)
+    addResvStation.removeEntry(entry3)
+    entry6 = addResvStation.addEntry(inst)

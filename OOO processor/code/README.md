@@ -14,9 +14,9 @@ Roll number: IMT2018523
 ### Progress
 1. GUI - semi-complete; to be updated, linked
 2. Instruction data structure - initially complete. Might have to add on features later
-3. Reservation Station - needs simplification
+3. Reservation Station - Simplified, cleaned
 4. ROB - complete
-5. Load/Store buffer - incomplete
+5. Load/Store buffer - Complete, duplicate of reservation station
 6. ARF - Done, registers must ALWAYS be called from ARF. It will take care if it is marked busy, and supply value from the RAT
 7. RAT - Done
 
