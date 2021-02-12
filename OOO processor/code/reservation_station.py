@@ -1,17 +1,21 @@
 from exceptions import AlreadyExistsException
-
+from constants import DEBUG
 
 class ReservationStationEntry:
-    def __init__(self, id=None, instr="", busy=False, dest="",
-                 src_tag1="", src_tag2="", src_val1="", src_val2=""):
+    def __init__(self, id=None, instr="", busy=True):
         self._id = id
         self._instruction = instr
         self._busy = busy
-        self._dest = dest
-        self._src_tag1 = src_tag1
-        self._src_tag2 = src_tag2
-        self._src_val1 = src_val1
-        self._src_val2 = src_val2
+        self._dest = instr.rd.getReg()
+
+        self._src_val1, self._src_tag1 = self.__getValSrc(instr.rs1)
+        self._src_val2, self._src_tag2 = self.__getValSrc(instr.rs2)       
+
+    def __getValSrc(self, source):
+        if isinstance(source.getValue(), int):
+            return source.getValue(), None
+        else:
+            return None, source.getReg()
 
     def toggleState(self):
         self._busy = not self._busy
@@ -27,7 +31,7 @@ class ReservationStationEntry:
 
     def __str__(self):
         return f"""ReservationStationEntry:
-                    Instruction: {self._instruction}
+                    Instruction: {self._instruction.disassemble()}
                     Busy State: {self._busy}
                     Destination: {self._dest}
                     Source Tag 1: {self._src_tag1}
@@ -40,23 +44,23 @@ class ReservationStationEntry:
 class ReservationStation:
     def __init__(self, datatype, size):
         self._type = datatype
-        self._busy_flag = False
+        self._is_full = False
         self._size = size
         self._buffer = [ReservationStationEntry() for _ in range(size)]
         self._next_index = 0
 
     def __updateFreeIndex(self):
-        self._next_index = (self._next_index + 1) % (self._size)
-        self._busy_flag = False
+        self._next_index = (self._next_index + 1) % self._size
+        self._is_full = False
         counter = 0
 
         while(self._buffer[self._next_index].isBusy()
                 and counter < self._size):
-            self._next_index = (self._next_index + 1) % (self._size)
+            self._next_index = (self._next_index + 1) % self._size
             counter += 1
 
         if counter == self._size:
-            self._busy_flag = True
+            self._is_full = True
             self._next_index = -1
 
     def __isValidID(self, id, newEntry=False):
@@ -77,26 +81,34 @@ class ReservationStation:
         return False
 
     def addEntry(self, entry):
-        if self._busy_flag:
-            return self._busy_flag
+        if self._is_full:
+            return self._is_full
 
         if self.__isValidID(entry.getID(), newEntry=True):
             self._buffer[self._next_index] = entry
-            print(f"Added entry {entry.getID()}")
+            
+            if DEBUG:
+                print(f"Added entry {entry.getID()} at {self._next_index}")
+            
             self.__updateFreeIndex()
         else:
             raise AlreadyExistsException(entry)
 
     def removeEntry(self, entry):
         id = entry.getID()
-        if self.__isValidID(id):
-            self._buffer[self.__getIndexFromID(id)] = ReservationStationEntry()
 
-            if self._busy_flag:
+        if self.__isValidID(id):
+            index = self.__getIndexFromID(id)
+            self._buffer[index] = ReservationStationEntry()
+
+            if DEBUG:
+                print(f"Removed entry {id} at {index}")
+
+            if self._is_full:
                 self.__updateFreeIndex()
 
-    def getBusyState(self):
-        return self._busy_flag
+    def getFreeState(self):
+        return self._is_full
 
     def __str__(self):
         return f"""Reservation Station for {self._type}.
@@ -119,10 +131,10 @@ if __name__ == "__main__":
 
     addResvStation = ReservationStation(ADD_SUB, 3)
 
-    for entry in [obj, obj1, obj, obj2, obj3]:
+    for entry in [obj, obj1, obj2, obj3, obj2]:
         try:
-            print(addResvStation.addEntry(entry))
+            addResvStation.addEntry(entry)
             if entry == obj2:
-                addResvStation.removeEntry(obj2)
+                addResvStation.removeEntry(obj1)
         except AlreadyExistsException:
             print(f"Entry already exists: {entry.getID()}")

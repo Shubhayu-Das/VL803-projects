@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import PySimpleGUI as sg
 
 
@@ -5,9 +6,15 @@ class Graphics():
     def __init__(self):
         pass
 
-    def __generateTable(self, title, data, headings, n_rows=5, hide_vertical_scroll=True):
+    def __generateTable(self, title, data, headings, n_rows=5):
         row_contents = data["contents"]
         row_colors = list(enumerate(data["colors"]))
+        hide_vertical_scroll = True
+
+        if len(row_contents) > n_rows:
+            hide_vertical_scroll = False
+        
+        n_rows = min(n_rows, len(row_contents))
 
         table = sg.Table(
             values=row_contents,
@@ -15,10 +22,11 @@ class Graphics():
             hide_vertical_scroll=hide_vertical_scroll,
             def_col_width=8,
             max_col_width=14,
+            row_height=40,
             justification="center",
             num_rows=n_rows,
             row_colors=row_colors,
-            background_color="lightgrey",
+            alternating_row_color="lightgrey",
             text_color="black"
         )
 
@@ -59,11 +67,10 @@ class Graphics():
         ratHeading = [f" R{i} " for i in range(1, 11)]
 
         instructionTable = self.__generateTable(
-            "Instructions",
+            "Instruction Queue",
             instructions,
             instructionsHeading,
             n_rows=6,
-            hide_vertical_scroll=False
         )
         loadStoreBufferTable = self.__generateTable(
             "Load Store Buffer", buffer, bufferHeading)
@@ -85,7 +92,7 @@ class Graphics():
         return displayLayout
 
     def generateWindow(self, machineState):
-        sg.theme('SystemDefault')
+        sg.theme('Material2')
 
         return sg.Window(
             'Tomasulo OOO processor sim',
@@ -107,7 +114,7 @@ if __name__ == "__main__":
     machineState = {
         "Instruction Table": {
             "contents": insts,
-            "colors": ["lightgreen", "red", "", "lightyellow"]
+            "colors": ["lightgreen", "orange", "", "lightyellow"]
         },
         "Reservation Station": {
             "contents": sampleResv,
