@@ -9,6 +9,8 @@ instruction - funct7 - rs2 - rs1 - funct3 - rd - opcode
     MUL      0000001 - src2 - src1 - 000 - dest - 0110011
     DIV      0000001 - src2 - src1 - 100 - dest - 0110011
 
+ADD/SUB/MUL/DIV rd, rs1, rs2
+
 References: 
 1. RV32I - https://github.com/riscv/riscv-opcodes/blob/master/opcodes-rv32i
 2. RV32M - https://github.com/riscv/riscv-opcodes/blob/master/opcodes-rv32m
@@ -39,7 +41,6 @@ class Instruction:
         self.funct3 = funct3
         self.opcode = opcode
         self.type = self.decodeType(funct7, opcode)
-        self.state = None
 
     def decodeType(self, funct7, opcode):
         if funct7 == "0000001" and opcode != "1010011":

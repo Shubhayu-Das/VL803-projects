@@ -1,11 +1,12 @@
-DEBUG = True
+DEBUG = False
 
-class NumCycles:
-    ADD = 1
-    SUB = 1
-    LW = 5
-    MUL = 10
-    DIV = 40
+NumCycles = {
+    "ADD": 1,
+    "SUB": 1,
+    "MUL": 10,
+    "DIV": 40,
+    "LW": 5
+}
 
 
 ADD_SUB = "ADD/SUB"
