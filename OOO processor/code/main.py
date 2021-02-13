@@ -1,3 +1,5 @@
+import PySimpleGUI as sg
+
 from arf import ARF
 from rat import RAT
 from instruction import Instruction
@@ -7,7 +9,7 @@ from instruction_table import InstructionTable, InstructionTableEntry
 from LS_buffer import LoadStoreBuffer
 
 import constants
-# from gui import Graphics
+from gui import Graphics
 
 program_src = "riscv_binary.elf"
 
@@ -24,6 +26,7 @@ LS_Buffer = LoadStoreBuffer(size=3)
 reservStationEntries = []
 LSBufferEntries = []
 instructions = []
+GUI = Graphics()
 
 # Load in the program
 with open(program_src) as binary:
@@ -49,8 +52,17 @@ if constants.DEBUG:
 
 print(instructionTable._entries[1])
 
-for _ in range(10):
-    cycle += 1
-    instructionTable._entries[0].next(cycle)
+counter = 0
+window = GUI.generateWindow()
+while True:
+    event, values = window.read(timeout=100)
+    if event == sg.WIN_CLOSED:
+        break
+    counter += 1
+    if counter % 1 == 0:
+        cycle += 1
+        instructionTable._entries[1].next(cycle)
+        GUI.updateContents(window, instructionTable)
 
+window.close()
 print(instructionTable)

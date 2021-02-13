@@ -161,7 +161,7 @@ class Graphics():
 
     def updateContents(self, window, instructionTable):
         self.__convertInstructionTable(instructionTable)
-        window['inst_table_frame'].update(self._machine_state["Instruction Table"]["contents"])
+        window['inst_table'].update(self._machine_state["Instruction Table"]["contents"])
 
 
 if __name__ == "__main__":
@@ -169,4 +169,9 @@ if __name__ == "__main__":
     GUI = Graphics()
 
     window = GUI.generateWindow()
-    event, values = window.read()
+
+    while True:
+        event, values = window.read(timeout=100)
+        if event == sg.WIN_CLOSED:
+            break
+    window.close()
