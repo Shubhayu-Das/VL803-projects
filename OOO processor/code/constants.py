@@ -1,4 +1,5 @@
 DEBUG = False
+LIMIT = 10
 
 NumCycles = {
     "ADD": 1,
@@ -7,6 +8,11 @@ NumCycles = {
     "DIV": 40,
     "LW": 5
 }
+
+class RunState:
+    NOT_STARTED = "NOT STARTED"
+    RS          = "RS"
+    
 
 
 ADD_SUB = "ADD/SUB"

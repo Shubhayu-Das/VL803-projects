@@ -1,15 +1,15 @@
-from constants import DEBUG, NumCycles
+from constants import DEBUG, NumCycles, RunState
 
 class InstructionTableEntry:
     def __init__(self, instruction, id):
         self._instruction = instruction
         self._id = id
-        self._state = None
-        self._rs_issue_cycle = None
-        self._exec_start = None
-        self._exec_complete = None
-        self._cdb_write = None
-        self._commit = None
+        self._state = RunState.NOT_STARTED
+        self._rs_issue_cycle = ""
+        self._exec_start = ""
+        self._exec_complete = ""
+        self._cdb_write = ""
+        self._commit = ""
 
     def RS_Start(self, cycle):
         self._state = "RS"
@@ -31,17 +31,15 @@ class InstructionTableEntry:
         self._state = "Done"
         self._commit = cycle
 
+    def getState(self):
+        return self._state
+
+    def getInstruction(self):
+        return self._instruction
+
+    #TODO: To be defined. There should be no logic here
     def next(self, cycle):
-        if self._commit:
-            return True
-        elif self._cdb_write:
-            self.Commit(cycle)
-        elif self._exec_start:
-            self.CDB_Write(cycle)
-        elif self._rs_issue_cycle:
-            self.EX_Start(cycle)
-        else:
-            self.RS_Start(cycle)
+        pass
 
     def __str__(self):
         return f"{self._instruction.disassemble()}\t\t{self._rs_issue_cycle} {self._exec_start} {self._exec_complete} {self._cdb_write} {self._commit}"
@@ -57,6 +55,9 @@ class InstructionTable:
         self._entries[self._index] = InstructionTableEntry(instruction, self._index)
 
         self._index += 1
+
+    def getEntry(self, index):
+        return self._entries[index]
 
     def __str__(self):
         display = "Instruction\t\t\t\t\t\t\tRS Start Exec Start Exec End CDB Write Commit\n"

@@ -12,10 +12,9 @@ instruction - funct7 - rs2 - rs1 - funct3 - rd - opcode
 ADD/SUB/MUL/DIV rd, rs1, rs2
 
 References: 
-1. RV32I - https://github.com/riscv/riscv-opcodes/blob/master/opcodes-rv32i
-2. RV32M - https://github.com/riscv/riscv-opcodes/blob/master/opcodes-rv32m
+e
 '''
-from arf import ARF
+from arf import ARFRegister
 from rat import RAT
 
 
@@ -33,11 +32,11 @@ class Instruction:
             self.offset = funct7 + rs2
         else:
             self.funct7 = funct7
-            self.rs2 = ARF.getReg(rs2)
+            self.rs2 = rs2
 
         self.hasOffset = hasOffset
-        self.rs1 = ARF.getReg(rs1)
-        self.rd = ARF.getReg(rd)
+        self.rs1 = rs1
+        self.rd = rd
         self.funct3 = funct3
         self.opcode = opcode
         self.type = self.decodeType(funct7, opcode)
@@ -50,8 +49,6 @@ class Instruction:
 
     def disassemble(self):
         command = ""
-        rs1 = self.rs1.__str__()
-        rd = self.rd.__str__()
 
         if self.hasOffset:
             offset = int(self.offset, 2)
@@ -62,13 +59,12 @@ class Instruction:
 
             return {
                 "command": command,
-                "rd": rd,
-                "rs1": rs1,
+                "rd": self.rd,
+                "rs1": self.rs1,
                 "offset": offset
             }
             
         else:
-            rs2 = self.rs2.__str__()
 
             if self.opcode == "0110011":
                 if self.funct3 == "000":
@@ -88,28 +84,44 @@ class Instruction:
 
             return {
                 "command": command,
-                "rd": rd,
-                "rs1": rs1,
-                "rs2": rs2
+                "rd": self.rd,
+                "rs1": self.rs1,
+                "rs2": self.rs2
             }
 
+    def strDisassembled(self):
+        instruction = self.disassemble()
+        rd = instruction["rd"]
+        if isinstance(instruction["rd"], ARFRegister):
+            rd = rd.getName()
+    
+        rs1 = instruction["rs1"].getName()
+
+        if "offset" in instruction.keys():
+            last = instruction["offset"] 
+        else:
+            last = instruction["rs2"].getName()
+            # last = last.split(".")[-1]
+        return f"{instruction['command']} {rd}, {rs1}, {last}"
+
     @classmethod
-    def segment(self, instruction):
+    def segment(self, instruction, arf):
         instruction = instruction.replace(" ", "")
         if len(instruction) != 32:
             return -1
 
         funct7 = instruction[0:7]
-        rs2 = instruction[7:12]
-        rs1 = instruction[12:17]
+        rs2 = arf.getRegister(f"R{int(instruction[7:12], 2)}")
+        rs1 = arf.getRegister(f"R{int(instruction[12:17], 2)}")
         funct3 = instruction[17:20]
-        rd = instruction[20:25]
+        rd = arf.getRegister(f"R{int(instruction[20:25], 2)}")
         opcode = instruction[25:32]
         hasOffset = False
 
         # If we encounter a load word
         if funct3 == "010" and opcode == "1010011":
             hasOffset = True
+            rs2 = instruction[7:12]
 
         return Instruction(
             funct7=funct7,

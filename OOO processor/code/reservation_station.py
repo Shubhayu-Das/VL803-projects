@@ -1,19 +1,21 @@
 from constants import DEBUG
+from instruction import Instruction
+
 
 class ReservationStationEntry:
     def __init__(self, instr, busy=True):
         self._instruction = instr
         self._busy = busy
-        self._dest = instr.rd.getReg()
+        self._dest = instr.rd
 
         self._src_val1, self._src_tag1 = self.__getValSrc(instr.rs1)
         self._src_val2, self._src_tag2 = self.__getValSrc(instr.rs2)       
 
     def __getValSrc(self, source):
-        if isinstance(source.getValue(), int):
-            return source.getValue(), None
+        if not source.getLink():
+            return source.getValue(), "-"
         else:
-            return None, source.getReg()
+            return "-", source.getSource()
 
     def toggleState(self):
         self._busy = not self._busy
@@ -37,8 +39,8 @@ class ReservationStationEntry:
 
 
 class ReservationStation:
-    def __init__(self, datatype, size):
-        self._type = datatype
+    def __init__(self, inst_type, size):
+        self._type = inst_type
         self._is_full = False
         self._size = size
         self._buffer = [None for _ in range(size)]
@@ -76,7 +78,7 @@ class ReservationStation:
             print(f"Added at RS{self._index + 1}")
 
         self.__updateFreeIndex()
-        return entry
+        return True
 
     def removeEntry(self, entry):
         if not isinstance(entry, ReservationStationEntry):
@@ -93,7 +95,7 @@ class ReservationStation:
         else:
             return False
 
-    def getFreeState(self):
+    def getState(self):
         return self._is_full
 
     def __str__(self):

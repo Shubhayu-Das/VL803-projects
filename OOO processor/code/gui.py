@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import PySimpleGUI as sg
 from dummy import insts, sampleResv, sampleRob, buffer, arf, rat
+from constants import LIMIT
 
 
 class Graphics():
@@ -17,7 +18,7 @@ class Graphics():
                     "contents": sampleResv,
                     "colors": []
                 },
-                "RoB": {
+                "ROB": {
                     "contents": sampleRob,
                     "colors": []
                 },
@@ -43,14 +44,11 @@ class Graphics():
         if len(row_contents) > n_rows:
             hide_vertical_scroll = False
         
-        n_rows = min(n_rows, len(row_contents))
-
         table = sg.Table(
             values=row_contents,
             headings=headings,
             hide_vertical_scroll=hide_vertical_scroll,
             def_col_width=8,
-            max_col_width=14,
             row_height=40,
             justification="center",
             num_rows=n_rows,
@@ -64,7 +62,6 @@ class Graphics():
             title=title,
             layout=[[table]],
             title_location=sg.TITLE_LOCATION_TOP,
-            key=key+"_frame"
         )]
 
     def __getTextElement(self, text, fontSize=16):
@@ -83,7 +80,7 @@ class Graphics():
         instructions = self._machine_state["Instruction Table"]
         buffer = self._machine_state["Load Store Buffer"]
         reserv = self._machine_state["Reservation Station"]
-        RoB = self._machine_state["RoB"]
+        ROB = self._machine_state["ROB"]
         ARF = self._machine_state["ARF"]
         RAT = self._machine_state["RAT"]
 
@@ -93,32 +90,31 @@ class Graphics():
                                "EX start", "EX end", "write to CDB", "Commit"]
         reservationHeading = ["Type", "Instruction", "Busy", "Dest tag",
                               "src tag1", "src tag2", "val 1", "val 2"]
-        robHeading = ["Type", "Dest", "Value"]
-        arfHeading = [f" R{i} " for i in range(1, 11)]
-        ratHeading = [f" R{i} " for i in range(1, 11)]
+        robHeading = [" Name ", "  Instruction  ", "Dest.", "Value"]
+        arfHeading = [f" R{i} " for i in range(0, LIMIT)]
+        ratHeading = [f" R{i} " for i in range(0, LIMIT)]
 
-        self.instructionTable = self.__generateTable(
+        instructionTable = self.__generateTable(
             "Instruction Queue",
             instructions,
             instructionsHeading,
-            n_rows=6,
+            n_rows=7,
             key="inst_table"
         )
-        self.loadStoreBufferTable = self.__generateTable(
-            "Load Store Buffer", buffer, bufferHeading, key="ls_buffer_table")
-        self.reservationStationTable = self.__generateTable(
-            "Reservation Station", reserv, reservationHeading)
-        self.RoBTable = self.__generateTable("ROB", RoB, robHeading)
-        self.ARFTable = self.__generateTable("ARF", ARF, arfHeading)
-        self.RATTable = self.__generateTable("RAT", RAT, ratHeading)
+        loadStoreBufferTable = self.__generateTable(
+            "Load Store Buffer", buffer, bufferHeading, n_rows=2, key="ls_buffer_table")
+        reservationStationTable = self.__generateTable(
+            "Reservation Station", reserv, reservationHeading, key="reserve_station")
+        ROBTable = self.__generateTable("ROB", ROB, robHeading, n_rows=8, key="rob")
+        ARFTable = self.__generateTable("ARF", ARF, arfHeading, key="arf")
+        RATTable = self.__generateTable("RAT", RAT, ratHeading, key="rat")
 
         displayLayout = [
             mainHeading,
             [sg.HorizontalSeparator(color="black")],
-            self.instructionTable,
-            self.reservationStationTable + self.RoBTable,
-            self.loadStoreBufferTable,
-            self.ARFTable + self.RATTable
+            instructionTable + ROBTable,
+            reservationStationTable + loadStoreBufferTable,
+            ARFTable + RATTable
         ]
 
         return displayLayout
@@ -140,15 +136,11 @@ class Graphics():
 
     def __convertInstructionTable(self, instructionTable):
         insts = []
+        colors = []
         for entry in instructionTable._entries:
             data = []
-            instruction = entry._instruction.disassemble()
-            if "offset" in instruction.keys():
-                last = instruction["offset"] 
-            else:
-                last = instruction["rs2"]
             
-            data.append(f"{instruction['command']} {instruction['rd']}, {instruction['rs1']}, {last}")
+            data.append(entry._instruction.strDisassembled())
             data.append(str(entry._rs_issue_cycle))
             data.append(str(entry._exec_start))
             data.append(str(entry._exec_complete))
@@ -156,12 +148,107 @@ class Graphics():
             data.append(str(entry._commit))
 
             insts.append(data)
+            colors.append("")
 
         self._machine_state["Instruction Table"]["contents"] = insts
+        self._machine_state["Instruction Table"]["colors"] = colors
 
-    def updateContents(self, window, instructionTable):
-        self.__convertInstructionTable(instructionTable)
-        window['inst_table'].update(self._machine_state["Instruction Table"]["contents"])
+    def __convertARF(self, ARFTable):
+        data = []
+        colors = []
+
+        for register in list(ARFTable.getEntries().values())[:LIMIT]:
+            data.append(register.getDisplay())
+            colors.append("")
+
+        self._machine_state["ARF"]["contents"] = [data]
+        self._machine_state["ARF"]["colors"] = colors
+
+    def __convertRAT(self, RATTable):
+        data = []
+        colors = []
+
+        for register in list(RATTable.getEntries().values())[:LIMIT]:
+            data.append(register.getDisplay())
+            colors.append("")
+
+        self._machine_state["RAT"]["contents"] = [data]
+        self._machine_state["RAT"]["colors"] = colors
+
+
+    def __convertROB(self, rob):
+        insts = []
+        colors = []
+        for name, entry in rob.getEntries().items():
+            data = []
+            if entry == None:
+                data = [name] + [""] * 3
+            else:
+                data.append(name)
+                data.append(entry.getInstruction().strDisassembled())
+                data.append(entry.getDestination().getName())
+                data.append(entry.getValue())
+
+            insts.append(data)
+            colors.append("")
+
+        self._machine_state["ROB"]["contents"] = insts
+        self._machine_state["ROB"]["colors"] = colors
+
+    def __convertReservationStation(self, resStats):
+        insts = []
+        colors = []
+        for name, resStat in resStats.items():
+            for entry in resStat._buffer:
+                data = []
+                if entry:
+                    data.append(name)
+                    data.append(entry._instruction.strDisassembled())
+                    data.append(str(entry._busy))
+                    data.append(entry._dest.getName())
+
+                    if isinstance(entry._src_val1, str):
+                        data.append(entry._src_tag1.getDisplay())
+                    else:
+                        data.append(entry._src_tag1)
+
+                    if isinstance(entry._src_val2, str):
+                        data.append(entry._src_tag2.getDisplay())
+                    else:
+                        data.append(entry._src_tag2)
+                    
+                    data.append(str(entry._src_val1))
+                    data.append(str(entry._src_val2))
+                else:
+                    data = [name] + [""] * 7
+
+                insts.append(data)
+                colors.append("")
+
+        self._machine_state["Reservation Station"]["contents"] = insts
+        self._machine_state["Reservation Station"]["colors"] = colors
+
+    def updateContents(self, window, instructionTable=None, ROB=None, resStats=None, ARF=None, RAT=None):
+        if instructionTable:
+            self.__convertInstructionTable(instructionTable)
+            window['inst_table'].update(self._machine_state["Instruction Table"]["contents"])
+        
+        if ROB:
+            self.__convertROB(ROB)
+            window['rob'].update(self._machine_state["ROB"]["contents"])
+
+        if resStats:
+            self.__convertReservationStation(resStats)
+            window['reserve_station'].update(self._machine_state["Reservation Station"]["contents"])
+
+        if ARF:
+            self.__convertARF(ARF)
+            window['arf'].update(self._machine_state["ARF"]["contents"])
+
+        if RAT:
+            self.__convertRAT(RAT)
+            window['rat'].update(self._machine_state["RAT"]["contents"])
+        
 
 
 if __name__ == "__main__":

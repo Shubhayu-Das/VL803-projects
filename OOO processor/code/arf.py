@@ -1,75 +1,62 @@
-from register import Register
+from register_bank import Register, RegisterBank
 
 
 class ARFRegister(Register):
-    def __init__(self, val=0, name="", valid=True, link=None):
-        super(ARFRegister, self).__init__(val, name, valid, link)
+    def __init__(self, name="", val=0, busy=True, link=None):
+        super(ARFRegister, self).__init__(name, val, busy)
+        self._link = link
+
+    def setLink(self, new_link):
+        self._link = new_link
+    
+    def getLink(self):
+        return self._link
+
+    def getSource(self):
+        if self._link:
+            return self._link
+        else:
+            return self._name
+
+    def getDisplay(self):
+        if self._link:
+            return self._link.getName()
+        else:
+            return self._value
 
     def __str__(self):
-        return f"ARF.R{self._name}"
+        return f"[{'BUSY' if self._busy else 'FREE'}] ARF.{self._name}: {self._busy}"
 
 
-class ARF:
-    R0  = ARFRegister(val=0, name=bin(0))
-    R1  = ARFRegister(val=0, name=bin(1))
-    R2  = ARFRegister(val=0, name=bin(2))
-    R3  = ARFRegister(val=0, name=bin(3))
-    R4  = ARFRegister(val=0, name=bin(4))
-    R5  = ARFRegister(val=0, name=bin(5))
-    R6  = ARFRegister(val=0, name=bin(6))
-    R7  = ARFRegister(val=0, name=bin(7))
-    R8  = ARFRegister(val=0, name=bin(8))
-    R9  = ARFRegister(val=0, name=bin(9))
-    R10 = ARFRegister(val=0, name=bin(10))
-    R11 = ARFRegister(val=0, name=bin(11))
-    R12 = ARFRegister(val=0, name=bin(12))
-    R13 = ARFRegister(val=0, name=bin(13))
-    R14 = ARFRegister(val=0, name=bin(14))
-    R15 = ARFRegister(val=0, name=bin(15))
-    R16 = ARFRegister(val=0, name=bin(16))
-    R17 = ARFRegister(val=0, name=bin(17))
-    R18 = ARFRegister(val=0, name=bin(18))
-    R19 = ARFRegister(val=0, name=bin(19))
-    R20 = ARFRegister(val=0, name=bin(20))
-    R21 = ARFRegister(val=0, name=bin(21))
-    R22 = ARFRegister(val=0, name=bin(22))
-    R23 = ARFRegister(val=0, name=bin(23))
-    R24 = ARFRegister(val=0, name=bin(24))
-    R25 = ARFRegister(val=0, name=bin(25))
-    R26 = ARFRegister(val=0, name=bin(26))
-    R27 = ARFRegister(val=0, name=bin(27))
-    R28 = ARFRegister(val=0, name=bin(28))
-    R29 = ARFRegister(val=0, name=bin(29))
-    R30 = ARFRegister(val=0, name=bin(30))
-    R31 = ARFRegister(val=0, name=bin(31))
-    R32 = ARFRegister(val=0, name=bin(32))
+class ARF(RegisterBank):
+    def __init__(self, size=32):
+        super(ARF, self).__init__("ARF", size, unit=ARFRegister)
 
-    @classmethod
-    def getReg(self, binary):
-        regNo = int(binary, 2)
-        if regNo >= 0 and regNo <= 32:
-            return eval(f"ARF.R{regNo}")
+    def getRegister(self, bin_tag):
+        bin_tag = bin_tag.upper()
+
+        if bin_tag[0] == 'R':
+            return self._bank[bin_tag]
         else:
-            return False
+            return self._bank[f"R{int(bin_tag, 2)}"]
+
+
+    def updateRegister(self, name, value, busyState, mapping):
+        name = name.upper()
+
+        if name[0] != 'R':
+            name = f"R{int(bin_tag, 2)}"
+
+        self._bank[name].setValue(value)
+        self._bank[name].setState(busy=busyState)
+        self._bank[name].setLink(mapping)
 
 
 if __name__ == "__main__":
-    print(f"Decoded register: {ARF.getReg('00100')}")
+    arf = ARF()
+    print(f"Decoded register: {arf.getRegister('00100')}")
+    arf.updateRegister("R4", 10, True, "RAT.R2")
 
-    from rat import RAT
+    print(arf.getRegister("R4"))
 
-    print("Initial ARF.R32: ", ARF.R32.getReg())
-    print("Linking ARF.R32 to RAT.R30")
-    ARF.R32.link(RAT.R30)
-    print("ARF.R32 after linking: ", ARF.R32.getReg())
-    
-    ARF.R32.setValue(32)
-
-    print(f"\nValue in RAT.R30: {RAT.R30.getValue()}")
-    print(f"Value in ARF.R32: {ARF.R32._value}")
-    print(f"Value read when called for ARF.R32: {ARF.R32.getValue()}")
-
-    ARF.R32.unlink()
-    ARF.R32.setValue(ARF.R32.getValue())
-    print(ARF.R32.getReg())
-    print(f"Value in ARF.R32: {ARF.R32._value}")
+    # from rat import RAT

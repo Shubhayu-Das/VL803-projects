@@ -1,109 +1,103 @@
-from exceptions import AlreadyExistsException
+from collections import defaultdict
+
 from constants import DEBUG
 from instruction import Instruction
+from register_bank import RegisterBank
 
 
 class ROBEntry:
-    def __init__(self, instruction, name=""):
-        self._instruction = instruction
-        self._destination = instruction.rd
-        self._value = None
+    def __init__(self, inst, destination, value, name=""):
         self._name = name
+        self._inst = inst
+        self._dest = destination
+        self._value = value
 
-        instruction.rd.link(self)
-
-    def setName(self, name):
-        self._name = name
-
-    def getReg(self):
-        return self
+    def setValue(self, new_val):
+        self._value = new_val
 
     def getValue(self):
-        if self._value is not None:
-            return self._value
-        else:
-            return self
+        return self._value
 
-    def setValue(self, val):
-        self._value = val
+    def getName(self, new_val):
+        return self._name
+
+    def getDestination(self):
+        return self._dest
+
+    def getInstruction(self):
+        return self._inst
 
     def __str__(self):
-        return f"<ROB Entry {self._name}, instr: {self._instruction.disassemble()}, dest: {self._destination}, value: {self._value}>"
+        return f"ROB{self._name}, inst={self._inst}, val={self._value}, dest={self._dest}"
 
 
-class ROBTable:
-    def __init__(self, size=3):
-        self._head = 0
-        self._tail = 0
-        self._is_full = False
-        self._size = size
+class ROBTable(RegisterBank):
+    def __init__(self, size=8):
+        self._head = 1
+        self._tail = 1
+        self._bank = defaultdict(None, {})
 
-        self._entries = [None for i in range(1, size + 1)]
+        for i in range(1, size+1):
+            self._bank.update({f"ROB{i}": None})
 
-    def addEntry(self, instruction):
-        if isinstance(instruction, Instruction):
-            entry = ROBEntry(instruction)
-        else:
+    def addEntry(self, inst):
+        if self._bank[f"ROB{self._tail}"]:
             if DEBUG:
-                print("Can only enter instructions into ROBTable")
+                print("ROB FULL")
             return False
 
-        if self._is_full:
-            if DEBUG:
-                print("ROB is full, entry not made")
-            return False
-        else:
-            entry.setName(f"ROB{self._tail + 1}")
+        addr = f"ROB{self._tail}"
 
-            self._entries[self._tail] = entry
-            if DEBUG:
-                print(f"Added {entry} to ROB at {self._tail}")
-                
-            self._tail = (self._tail + 1) % self._size
-            if self._tail == self._head:
-                self._is_full = True
+        new_entry = ROBEntry(
+            inst=inst,
+            destination=inst.rd,
+            value="",
+            name=addr
+        )
 
-            return entry
+        self._bank[addr] = new_entry
+        self._tail += 1
 
-    def removeEntry(self):
-        entry = self._entries[self._head]
-        self._entries[self._head] = None
+        if self._tail > len(self._bank):
+            self._tail = 1
 
         if DEBUG:
-            print(f"Removed {entry} from ROB at {self._head}")
+            print(f"ADDED to ROB @ {new_entry}")
+
+        return addr
+
+    def removeEntry(self):
+        if not self._bank[f"ROB{self._head}"]:
+            if DEBUG:
+                print("ROB EMPTY")
+            return False
         
-        self._head = (self._head + 1) % self._size
-        if self._head != self._tail:
-            self._is_full = False
-        
-        return entry
+        removedValue = self._bank[f"ROB{self._head}"]
+        self._bank[f"ROB{self._head}"] = None
+        self._head += 1
+
+        if self._head > len(self._bank):
+            self._head = 1
+
+        if DEBUG:
+            print(f"REMOVED from ROB @ {removedValue}")
+        return removedValue
+
+    def getEntries(self):
+        return self._bank
 
 
 if __name__ == "__main__":
-    from arf import ARF
-    from instruction import Instruction
+    rob = ROBTable(2)
 
-    ARF.R9.setValue(9)
-    ARF.R20.setValue(20)
-    ARF.R21.setValue(21)
-    add_r9_r20_r21 = "0000 0001 0101 1010 0000 0100 1011 0011"
-    inst = Instruction.segment(add_r9_r20_r21)
+    entry1 = ROBEntry("ADD R1, R2, R3", "RAT.R3", 10, name="1")
+    entry2 = ROBEntry("ADD R1, R2, R3", "RAT.R4", 10, name="2")
+    entry3 = ROBEntry("ADD R1, R2, R3", "RAT.R5", 10, name="3")
 
-    rob = ROBTable()
-
-    entry = rob.addEntry(inst)
-
-    print(ARF.R9.getReg())
-    entry.setValue(10)
-    ARF.R9.unlink()
-    print(ARF.R9.getValue())
-    print()
-
-    rob.addEntry(inst)
+    rob.addEntry(entry1)
+    rob.addEntry(entry1)
+    rob.addEntry(entry2)
+    rob.addEntry(entry1)
     rob.removeEntry()
-    rob.addEntry(inst)
-    rob.addEntry(inst)
-    rob.addEntry(inst)
-    rob.removeEntry()
-    rob.removeEntry()
-    rob.addEntry(inst)
+    rob.addEntry(entry1)
+    rob.addEntry(entry1)
