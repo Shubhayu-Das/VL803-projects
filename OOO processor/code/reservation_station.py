@@ -17,6 +17,26 @@ class ReservationStationEntry:
         else:
             return "-", source.getSource()
 
+    def isExecuteable(self):
+        return (not isinstance(self._src_val1, str)) and (not isinstance(self._src_val2, str))
+
+    def __exec(self):
+        command = self._instruction.disassemble()["command"]
+        lookup = {
+            "ADD": lambda x, y: round(x+y, 2),
+            "SUB": lambda x, y: round(x-y, 2),
+            "MUL": lambda x, y: round(x*y, 2),
+            "DIV": lambda x, y: round(x/y, 2),
+        }
+
+        return lookup[command](self._src_val1, self._src_val2)
+
+    def getResult(self):
+        if self.isExecuteable():
+            return self.__exec()
+        else:
+            return False
+
     def toggleState(self):
         self._busy = not self._busy
 
@@ -80,8 +100,26 @@ class ReservationStation:
         self.__updateFreeIndex()
         return True
 
+    def updateEntries(self, robEntry, value):
+        for entry in self._buffer:
+            if entry:
+                if entry._instruction.rs1 == robEntry.getDestination():
+                    entry._src_val1 = float(robEntry.getValue())
+                    entry._src_tag1 = "-"
+
+                if entry._instruction.rs2 == robEntry.getDestination():
+                    entry._src_val2 = float(robEntry.getValue())
+                    entry._src_tag2 = "-"
+
     def removeEntry(self, entry):
-        if not isinstance(entry, ReservationStationEntry):
+        if isinstance(entry, Instruction):
+            for e in self._buffer:
+                if e:
+                    if e._instruction.PC == entry.PC:
+                        entry = e
+                        break
+
+        elif not isinstance(entry, ReservationStationEntry):
             return False
 
         if entry in self._buffer:
@@ -95,8 +133,11 @@ class ReservationStation:
         else:
             return False
 
-    def getState(self):
+    def getBusyState(self):
         return self._is_full
+
+    def getEntries(self):
+        return self._buffer
 
     def __str__(self):
         return f"""Reservation Station for {self._type}.

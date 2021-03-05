@@ -16,7 +16,7 @@ class RATRegister(Register):
         if self._link:
             return self._link
         else:
-            return self._name
+            return f"RAT.{self._name}"
 
     def getDisplay(self):
         if self._link:
@@ -49,7 +49,7 @@ class RAT(RegisterBank):
         else:
             self._is_full = False
 
-    def getState(self):
+    def getBusyState(self):
         return self._is_full
     
     def addEntry(self, arf_reg):

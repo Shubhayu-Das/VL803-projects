@@ -22,8 +22,12 @@ class Instruction:
     I_TYPE = "J"
     M_TYPE = "M"
 
-    def __init__(self, funct7="0000000", rs2="00000", rs1="00000",
+    def __init__(self, PC=-1, funct7="0000000", rs2="00000", rs1="00000",
                  rd="00000", funct3="000", opcode="0000000", hasOffset=False):
+        
+        if PC > 0:
+            self.PC = PC
+
         self.rs2 = None
         self.offset = None
         self.funct7 = None
@@ -105,7 +109,7 @@ class Instruction:
         return f"{instruction['command']} {rd}, {rs1}, {last}"
 
     @classmethod
-    def segment(self, instruction, arf):
+    def segment(self, instruction, arf, PC=-1):
         instruction = instruction.replace(" ", "")
         if len(instruction) != 32:
             return -1
@@ -124,6 +128,7 @@ class Instruction:
             rs2 = instruction[7:12]
 
         return Instruction(
+            PC=PC,
             funct7=funct7,
             rs2=rs2,
             rs1=rs1,
@@ -135,9 +140,9 @@ class Instruction:
 
     def __str__(self):
         if self.hasOffset:
-            return f"<{self.type}-Instruction offset:{self.offset} rs1:{self.rs1} funct3:{self.funct3} rd:{self.rd} opcode:{self.opcode}>"
+            return f"<[PC={self.PC}] {self.type}-Instruction offset:{self.offset} rs1:{self.rs1.getSource()} funct3:{self.funct3} rd:{self.rd.getSource()} opcode:{self.opcode}>"
         else:
-            return f"<{self.type}-Instruction funct7:{self.funct7} rs2:{self.rs2} rs1:{self.rs1} funct3:{self.funct3} rd:{self.rd} opcode:{self.opcode}>"
+            return f"<[PC={self.PC}] {self.type}-Instruction funct7:{self.funct7} rs2:{self.rs2.getSource()} rs1:{self.rs1.getSource()} funct3:{self.funct3} rd:{self.rd.getSource()} opcode:{self.opcode}>"
 
 
 if __name__ == "__main__":

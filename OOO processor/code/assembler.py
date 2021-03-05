@@ -73,8 +73,10 @@ def assembler(filename):
             print(f"{Instruction.segment(inst).disassemble()} - {inst}")
 
     with open("riscv_binary.elf", 'w') as destFile:
-        for inst in assembly:
-            destFile.write(inst+"\n")
+        for idx, inst in enumerate(assembly):
+            destFile.write(inst)
+            if idx < len(assembly) - 1:
+                destFile.write("\n")
 
 
 assembler("riscv_program.asm")

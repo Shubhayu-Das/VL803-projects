@@ -106,8 +106,8 @@ class Graphics():
         reservationStationTable = self.__generateTable(
             "Reservation Station", reserv, reservationHeading, key="reserve_station")
         ROBTable = self.__generateTable("ROB", ROB, robHeading, n_rows=8, key="rob")
-        ARFTable = self.__generateTable("ARF", ARF, arfHeading, key="arf")
-        RATTable = self.__generateTable("RAT", RAT, ratHeading, key="rat")
+        ARFTable = self.__generateTable("ARF", ARF, arfHeading, n_rows=1, key="arf")
+        RATTable = self.__generateTable("RAT", RAT, ratHeading, n_rows=1,key="rat")
 
         displayLayout = [
             mainHeading,
@@ -221,6 +221,7 @@ class Graphics():
                     data.append(str(entry._src_val2))
                 else:
                     data = [name] + [""] * 7
+                    data[2] = False
 
                 insts.append(data)
                 colors.append("")

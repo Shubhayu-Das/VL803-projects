@@ -16,7 +16,7 @@ class ARFRegister(Register):
         if self._link:
             return self._link
         else:
-            return self._name
+            return f"ARF.{self._name}"
 
     def getDisplay(self):
         if self._link:
@@ -25,7 +25,7 @@ class ARFRegister(Register):
             return self._value
 
     def __str__(self):
-        return f"[{'BUSY' if self._busy else 'FREE'}] ARF.{self._name}: {self._busy}"
+        return f"[{'BUSY' if self._busy else 'FREE'}] ARF.{self.getDisplay()}-> {self._link}"
 
 
 class ARF(RegisterBank):

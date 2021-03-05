@@ -1,4 +1,6 @@
 from constants import DEBUG, NumCycles, RunState
+from instruction import Instruction
+
 
 class InstructionTableEntry:
     def __init__(self, instruction, id):
@@ -10,36 +12,38 @@ class InstructionTableEntry:
         self._exec_complete = ""
         self._cdb_write = ""
         self._commit = ""
+        self._counter = 0
+        self._max_ticks = NumCycles[instruction.disassemble()["command"]] - 1
 
     def RS_Start(self, cycle):
-        self._state = "RS"
+        self._state = RunState.RS
         self._rs_issue_cycle = cycle
 
     def EX_Start(self, cycle):
-        self._state = "EX1"
+        self._state = RunState.EX_START
         self._exec_start = cycle
-        self._exec_complete = cycle + NumCycles[self._instruction.disassemble()["command"]] - 1
+        self.EX_Tick(cycle)
+
+    def EX_Tick(self, cycle):
+        if self._counter == self._max_ticks:
+            self._exec_complete = cycle
+            self._state = RunState.EX_END
+        else:
+            self._counter += 1
 
     def CDB_Write(self, cycle):
-        if cycle == self._exec_complete + 1:
-            self._state = "CDB"
-            self._cdb_write = cycle
-        else:
-            self._state = self._state[:2] + str(int(self._state[2:]) + 1)
+        self._state = RunState.CDB
+        self._cdb_write = cycle
 
     def Commit(self, cycle):
-        self._state = "Done"
+        self._state = RunState.COMMIT
         self._commit = cycle
 
-    def getState(self):
+    def getBusyState(self):
         return self._state
 
     def getInstruction(self):
         return self._instruction
-
-    #TODO: To be defined. There should be no logic here
-    def next(self, cycle):
-        pass
 
     def __str__(self):
         return f"{self._instruction.disassemble()}\t\t{self._rs_issue_cycle} {self._exec_start} {self._exec_complete} {self._cdb_write} {self._commit}"
@@ -57,7 +61,12 @@ class InstructionTable:
         self._index += 1
 
     def getEntry(self, index):
-        return self._entries[index]
+        if isinstance(index, Instruction):
+            for entry in self._entries:
+                if entry.getInstruction().PC == index.PC:
+                    return entry
+        else:
+            return self._entries[index]
 
     def __str__(self):
         display = "Instruction\t\t\t\t\t\t\tRS Start Exec Start Exec End CDB Write Commit\n"

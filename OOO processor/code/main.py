@@ -1,5 +1,4 @@
 import PySimpleGUI as sg
-import time
 
 from arf import ARF
 from rat import RAT
@@ -34,8 +33,8 @@ with open(program_src) as binary:
     program = binary.readlines()
     program = [inst.strip() for inst in program]
 
-    for inst in program:
-        instructions.append(Instruction.segment(inst, ARFTable))
+    for PC, inst in enumerate(program):
+        instructions.append(Instruction.segment(inst, ARFTable, PC=PC+1))
 
 if constants.DEBUG:
     print("Instructions loaded and parsed")
@@ -53,30 +52,31 @@ if constants.DEBUG:
 
 
 # Function to try and dispatch next instruction if corresponding RS is free
+# Updates all relevant source mappings too
 def tryDispatch():
     for i in range(0, len(instructions)):
         entry = instructionTable.getEntry(i)
 
-        if entry.getState() == constants.RunState.NOT_STARTED:
+        if entry.getBusyState() == constants.RunState.NOT_STARTED:
             instruction = entry.getInstruction()
             instruction_type = instruction.disassemble()["command"]
 
             if instruction_type in ["ADD", "SUB"]:
-                if not ADD_RS.getState():
-                    if not RATTable.getState():
+                if not ADD_RS.getBusyState():
+                    if not RATTable.getBusyState():
                         ratRegister = RATTable.addEntry(instruction.rd)
-                        instruction.rd.setLink(ratRegister)
                         ratRegister.setLink(ROB.addEntry(instruction))
+                        instruction.rd.setLink(ratRegister)
                         ADD_RS.addEntry(instruction)
                         entry.RS_Start(cycle)
                         break
     
             elif instruction_type in ["MUL", "DIV"]:
-                if not MUL_RS.getState():
-                    if not RATTable.getState():
+                if not MUL_RS.getBusyState():
+                    if not RATTable.getBusyState():
                         ratRegister = RATTable.addEntry(instruction.rd)
-                        instruction.rd.setLink(ratRegister)
                         ratRegister.setLink(ROB.addEntry(instruction))
+                        instruction.rd.setLink(ratRegister)
                         MUL_RS.addEntry(instruction)
                         entry.RS_Start(cycle)
                         break
@@ -84,13 +84,69 @@ def tryDispatch():
             elif instruction_type in ["LW", "SW"]:
                 pass
 
-# Function to get the sources and update the dependencies
+# Function to simulate the execution of the process
+def tryExecute():
+    for RS in [ADD_RS, MUL_RS]:
+        for entry in RS.getEntries():
+            if entry:                
+                it_entry = instructionTable.getEntry(entry._instruction)
+                if it_entry.getBusyState() == constants.RunState.RS and entry.isExecuteable():
+                        it_entry.EX_Start(cycle)
+                        break
+
+def proceedExecuting():
+    for RS in [ADD_RS, MUL_RS]:
+        for entry in RS.getEntries():
+            if entry:                
+                it_entry = instructionTable.getEntry(entry._instruction)
+                if it_entry.getBusyState() == constants.RunState.EX_START:
+                    it_entry.EX_Tick(cycle)
+
+def tryCDBBroadcast():
+    for RS in [ADD_RS, MUL_RS]:
+        for entry in RS.getEntries():
+            if entry:                
+                it_entry = instructionTable.getEntry(entry._instruction)
+                if it_entry.getBusyState() == constants.RunState.EX_END:
+                    value = entry.getResult()
+
+                    if value:
+                        it_entry.CDB_Write(cycle)
+                        
+                        robEntry = ROB.updateValue(entry._instruction, value)
+                        for RS in [ADD_RS, MUL_RS]:
+                            RS.updateEntries(robEntry, value)
+                        return
+
+#TODO
+def tryCommit():
+    entry = ROB.getHead()
+    if entry:
+        if entry.getValue() != "NA":
+            ROB.removeEntry()
+            RATTable.updateRegister(entry.getDestination().getName(), entry.getValue(), False, None)
+
+            inst = entry.getInstruction()
+            instType = inst.disassemble()["command"]
+
+            instructionTable.getEntry(inst).Commit(cycle)
+            if instType in ["ADD", "SUB"]:
+                ADD_RS.removeEntry(entry.getInstruction())
+            elif instType in ["MUL", "DIV"]:
+                MUL_RS.removeEntry(entry.getInstruction())
+
+            print(cycle, entry.getDestination().getName())
 
 def logic_loop():
-    tryDispatch()
-
+    if constants.DEBUG:
+        print(cycle)
     
-
+    tryCommit()
+    tryCDBBroadcast()
+    proceedExecuting()
+    tryExecute()
+    tryDispatch()
+    
 
 
 GUI = Graphics()
@@ -99,7 +155,7 @@ window = GUI.generateWindow()
 
 # Main event loop
 while True:
-    event, values = window.read(timeout=200)
+    event, values = window.read(timeout=constants.CYCLE_DURATION)
     if event == sg.WIN_CLOSED:
         break
 
@@ -120,8 +176,7 @@ while True:
             ARF=ARFTable,
             RAT=RATTable
         )
-     
-    # time.sleep(100)
+
 
 
 window.close()
