@@ -6,8 +6,8 @@ CYCLE_DURATION = 1500
 NumCycles = {
     "ADD": 1,
     "SUB": 1,
-    "MUL": 10,
-    "DIV": 40,
+    "MUL": 5,   #10
+    "DIV": 10,  #40
     "LW": 5
 }
 

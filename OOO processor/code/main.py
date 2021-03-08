@@ -153,7 +153,7 @@ def logic_loop():
     tryDispatch()
     
 
-RUN = True
+RUN = False
 backwards = 1
 historyBuffer = []
 
@@ -171,12 +171,14 @@ while True:
             window["pause_button"].update(text="Continue")
         else:
             window["pause_button"].update(text="  Pause  ")
+    
         RUN = not RUN
+
     elif event in ["previous_button", "next_button"] and not RUN:
         if backwards < cycle:
             if event == "previous_button":
                 backwards += 1
-            elif event == "next_button" and ((cycle - backwards) < len(historyBuffer)-1):
+            elif event == "next_button" and ((cycle - backwards) < len(historyBuffer)):
                 backwards -= 1
 
             index = cycle - backwards

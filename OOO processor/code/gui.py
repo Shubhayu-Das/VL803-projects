@@ -132,7 +132,7 @@ class Graphics():
         CycleInfoTable = self.__generateTable("No. of Cycles", nCycles, cycleHeading, n_rows=len(NumCycles),key="num_cycles")
 
         pauseButton = [sg.Button(
-            button_text="  Pause  ",
+            button_text="  Start  ",
             key="pause_button"
         )]
 
