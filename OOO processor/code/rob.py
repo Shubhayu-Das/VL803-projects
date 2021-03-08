@@ -40,7 +40,7 @@ class ROBTable(RegisterBank):
         for i in range(1, size+1):
             self._bank.update({f"ROB{i}": None})
 
-    def addEntry(self, inst):
+    def addEntry(self, inst, dest):
         if self._bank[f"ROB{self._head}"]:
             if DEBUG:
                 print("ROB FULL")
@@ -50,7 +50,7 @@ class ROBTable(RegisterBank):
 
         new_entry = ROBEntry(
             inst=inst,
-            destination=inst.rd,
+            destination=dest,
             value="NA",
             name=addr
         )

@@ -1,9 +1,11 @@
 import re
+import sys
 from constants import DEBUG
 
 
 def splitOperands(program):
-    program = [inst for inst in program if not inst.startswith(";")]
+    program = [inst.split(";")[0] for inst in program]
+    program = list(filter(None, program))
     program = [re.split(",|\ ", inst.strip()) for inst in program]
     program = [[word.upper().replace('X', '') for word in inst if word] for inst in program]
 
@@ -17,8 +19,10 @@ def pad(number, n):
     return number
 
 def assembler(filename):
+    outFile = ".".join([filename.split("/")[-1].split(".")[0], "elf"])
     program = []
     assembly = []
+
     mapping = {
         "ADD": {
             "funct7": "0000000",
@@ -72,11 +76,14 @@ def assembler(filename):
         for inst in assembly:
             print(f"{Instruction.segment(inst).disassemble()} - {inst}")
 
-    with open("riscv_binary.elf", 'w') as destFile:
+    with open(f"build/{outFile}", 'w') as destFile:
         for idx, inst in enumerate(assembly):
             destFile.write(inst)
             if idx < len(assembly) - 1:
                 destFile.write("\n")
 
 
-assembler("riscv_program.asm")
+if len(sys.argv) < 2:
+    assembler("src/riscv_program.asm")
+else:
+    assembler(sys.argv[2])

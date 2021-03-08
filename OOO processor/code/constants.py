@@ -1,12 +1,13 @@
 DEBUG = False
+GUI_FONTSIZE   = 16
 LIMIT          = 10
-CYCLE_DURATION = 150
+CYCLE_DURATION = 1500
 
 NumCycles = {
     "ADD": 1,
     "SUB": 1,
-    "MUL": 6,
-    "DIV": 10,
+    "MUL": 10,
+    "DIV": 40,
     "LW": 5
 }
 

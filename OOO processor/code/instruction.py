@@ -12,7 +12,10 @@ instruction - funct7 - rs2 - rs1 - funct3 - rd - opcode
 ADD/SUB/MUL/DIV rd, rs1, rs2
 
 References: 
-e
+1. ADD/SUB/LW/SW come from RV32I: https://github.com/riscv/riscv-opcodes/blob/master/opcodes-rv32i
+
+2. MUL/DIV come from RV32M: https://github.com/riscv/riscv-opcodes/blob/master/opcodes-rv32m
+
 '''
 from arf import ARFRegister
 from rat import RAT

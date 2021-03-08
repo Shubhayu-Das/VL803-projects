@@ -37,6 +37,9 @@ class ReservationStationEntry:
         else:
             return False
 
+    def getInstruction(self):
+        return self._instruction
+
     def toggleState(self):
         self._busy = not self._busy
 
@@ -103,11 +106,11 @@ class ReservationStation:
     def updateEntries(self, robEntry, value):
         for entry in self._buffer:
             if entry:
-                if entry._instruction.rs1 == robEntry.getDestination():
+                if entry._instruction.rs1.getLink() == robEntry.getDestination():
                     entry._src_val1 = float(robEntry.getValue())
                     entry._src_tag1 = "-"
 
-                if entry._instruction.rs2 == robEntry.getDestination():
+                if entry._instruction.rs2.getLink() == robEntry.getDestination():
                     entry._src_val2 = float(robEntry.getValue())
                     entry._src_tag2 = "-"
 

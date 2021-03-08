@@ -8,13 +8,17 @@ class RATRegister(Register):
 
     def setLink(self, new_link):
         self._link = new_link
+        if new_link:
+            self.setState(True)
+        else:
+            self.setState(False)
     
     def getLink(self):
         return self._link
 
     def getSource(self):
         if self._link:
-            return self._link
+            return self._link.getName()
         else:
             return f"RAT.{self._name}"
 
@@ -30,7 +34,7 @@ class RATRegister(Register):
 
 class RAT(RegisterBank):
     def __init__(self, size=32):
-        super(RAT, self).__init__("RAT", size, unit=RATRegister)
+        super(RAT, self).__init__("RAT", size, unit=RATRegister, init=[0]*size)
         self._size = size
         self._index = 0
         self._is_full = False

@@ -28,12 +28,15 @@ class Register:
 
 
 class RegisterBank:
-    def __init__(self, name="", size=1, unit=Register):
+    def __init__(self, name="", size=1, unit=Register, init="random"):
         self._name = name
         self._bank = defaultdict(None, {})
 
+        if init == "random":
+            init = [randint(1, 101)]*size
+    
         for i in range(0, size):
-            self._bank.update({f"R{i}": unit(f"R{i}", randint(1, 100), False)})
+            self._bank.update({f"R{i}": unit(f"R{i}", init[i], False)})
 
     def getRegister(self, name):
         return self._bank[name]

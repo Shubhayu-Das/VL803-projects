@@ -1,38 +1,40 @@
 #!/usr/bin/env python3
 import PySimpleGUI as sg
-from dummy import insts, sampleResv, sampleRob, buffer, arf, rat
-from constants import LIMIT
+from constants import LIMIT, NumCycles, GUI_FONTSIZE
 
 
 class Graphics():
-    def __init__(self, machineState=False):
+    def __init__(self, machineState=None):
         if machineState:
             self._machine_state = machineState
         else:
             self._machine_state = {
                 "Instruction Table": {
-                    "contents": insts,
-                    "colors": ["lightgreen", "orange", "", "lightyellow"]
+                    "contents": [[""]*6]*5,
+                    "colors": []
                 },
                 "Reservation Station": {
-                    "contents": sampleResv,
+                    "contents": [["ADD/SUB", "", "", "", "", "", "", ""]]*3 + [["MUL/DIV", "", "", "", "", "", "", ""]]*2,
                     "colors": []
                 },
                 "ROB": {
-                    "contents": sampleRob,
+                    "contents": [[""]*4]*2,
                     "colors": []
                 },
                 "Load Store Buffer": {
-                    "contents": buffer,
-                    "colors": ["lightgreen"]
+                    "contents": [[""]*5]*2,
+                    "colors": []
                 },
                 "ARF": {
-                    "contents": arf,
+                    "contents": [f" R{i} " for i in range(0, LIMIT)],
                     "colors": []
                 },
                 "RAT": {
-                    "contents": rat,
+                    "contents": [f" R{i} " for i in range(0, LIMIT)],
                     "colors": []
+                },
+                "metadata": {
+                    "cycle": 0
                 }
             }
 
@@ -64,10 +66,10 @@ class Graphics():
             title_location=sg.TITLE_LOCATION_TOP,
         )]
 
-    def __getTextElement(self, text, fontSize=16):
+    def __getTextElement(self, text, fontSize=16, justification="center"):
         return [sg.Text(
             text,
-            justification="center",
+            justification=justification,
             pad=((20, 20), (2, 2)),
             font="Times " + str(fontSize),
             text_color="black"
@@ -77,22 +79,41 @@ class Graphics():
         mainHeading = self.__getTextElement(
             "Tomasulo out-of-order simulation", 24)
 
+
+        cycleNumber = [sg.Frame(
+            title="Current Cycle",
+            layout=[[sg.Text(
+            text=self._machine_state["metadata"]["cycle"],
+            key="cycle_number",
+            size=(3,1),
+            text_color="black",
+            font=f"Times {GUI_FONTSIZE+2}",
+        )]],
+            title_location=sg.TITLE_LOCATION_TOP,
+            element_justification = "center",
+        )]
+
         instructions = self._machine_state["Instruction Table"]
         buffer = self._machine_state["Load Store Buffer"]
         reserv = self._machine_state["Reservation Station"]
         ROB = self._machine_state["ROB"]
         ARF = self._machine_state["ARF"]
         RAT = self._machine_state["RAT"]
+        nCycles = {
+            "contents": [[inst, cycles] for inst, cycles in NumCycles.items()],
+            "colors": []
+        }
 
-        bufferHeading = ["Inst.", "Busy",
+        bufferHeading = [" Instruction ", "Busy",
                          "Dest Tag", "Address offset", "src reg"]
-        instructionsHeading = ["Inst", "Issue",
+        instructionsHeading = ["Instruction", "Issue",
                                "EX start", "EX end", "write to CDB", "Commit"]
         reservationHeading = ["Type", "Instruction", "Busy", "Dest tag",
                               "src tag1", "src tag2", "val 1", "val 2"]
-        robHeading = [" Name ", "  Instruction  ", "Dest.", "Value"]
-        arfHeading = [f" R{i} " for i in range(0, LIMIT)]
-        ratHeading = [f" R{i} " for i in range(0, LIMIT)]
+        robHeading = [" Name ", "  Instruction  ", " Dest. ", "  Value  "]
+        arfHeading = ["Reg", "Value", " Map ", "Busy"]
+        ratHeading = ["Reg", "Value", " Map ", "Busy"]
+        cycleHeading = ["Instr.", "No. of cycles"]
 
         instructionTable = self.__generateTable(
             "Instruction Queue",
@@ -106,15 +127,52 @@ class Graphics():
         reservationStationTable = self.__generateTable(
             "Reservation Station", reserv, reservationHeading, key="reserve_station")
         ROBTable = self.__generateTable("ROB", ROB, robHeading, n_rows=8, key="rob")
-        ARFTable = self.__generateTable("ARF", ARF, arfHeading, n_rows=1, key="arf")
-        RATTable = self.__generateTable("RAT", RAT, ratHeading, n_rows=1,key="rat")
+        ARFTable = self.__generateTable("ARF", ARF, arfHeading, n_rows=LIMIT, key="arf")
+        RATTable = self.__generateTable("RAT", RAT, ratHeading, n_rows=LIMIT,key="rat")
+        CycleInfoTable = self.__generateTable("No. of Cycles", nCycles, cycleHeading, n_rows=len(NumCycles),key="num_cycles")
 
+        pauseButton = [sg.Button(
+            button_text="  Pause  ",
+            key="pause_button"
+        )]
+
+        nextButton = [sg.Button(
+            button_text="Next",
+            key="next_button"
+        )]
+
+        prevButton = [sg.Button(
+            button_text="Prev",
+            key="previous_button"
+        )]
+
+        controlPanel = [sg.Frame(
+            title="Control Panel",
+            layout=[pauseButton, nextButton + prevButton],
+            title_location=sg.TITLE_LOCATION_TOP
+        )]
+
+        col1 = [sg.Column(
+            [cycleNumber, CycleInfoTable, controlPanel],
+            key="layout_col1"
+        )]
+        col2 = [sg.Column(
+            [instructionTable, [sg.Column([loadStoreBufferTable, reservationStationTable])]],
+            grab=True,
+            element_justification="center",
+            key="layout_col2"
+        )]
+        col3 = [sg.Column(
+            [ARFTable + RATTable, ROBTable],
+            grab=True,
+            expand_x=True,
+            key="layout_col3"
+        )]
+        
         displayLayout = [
             mainHeading,
             [sg.HorizontalSeparator(color="black")],
-            instructionTable + ROBTable,
-            reservationStationTable + loadStoreBufferTable,
-            ARFTable + RATTable
+            col1 + col2 + col3
         ]
 
         return displayLayout
@@ -125,7 +183,7 @@ class Graphics():
         return sg.Window(
             'Tomasulo OOO processor sim',
             self.generateLayout(),
-            font='Times 14',
+            font=f"Times {GUI_FONTSIZE}",
             size=sg.Window.get_screen_size(),
             element_padding=(10, 10),
             margins=(20, 20),
@@ -154,27 +212,43 @@ class Graphics():
         self._machine_state["Instruction Table"]["colors"] = colors
 
     def __convertARF(self, ARFTable):
-        data = []
+        insts = []
         colors = []
 
         for register in list(ARFTable.getEntries().values())[:LIMIT]:
-            data.append(register.getDisplay())
+            data = []
+
+            data.append(register.getName())
+            data.append(register.getValue())
+            data.append("-" if register.getDisplay() == register.getValue() else register.getDisplay())
+            data.append(str(register.isBusy())[0])
+
+            insts.append(data)
             colors.append("")
 
-        self._machine_state["ARF"]["contents"] = [data]
+        self._machine_state["ARF"]["contents"] = insts
         self._machine_state["ARF"]["colors"] = colors
 
     def __convertRAT(self, RATTable):
-        data = []
+        insts = []
         colors = []
 
         for register in list(RATTable.getEntries().values())[:LIMIT]:
-            data.append(register.getDisplay())
-            colors.append("")
+            data = []
 
-        self._machine_state["RAT"]["contents"] = [data]
+            data.append(register.getName())
+            data.append(register.getValue())
+            data.append("-" if register.getDisplay() == register.getValue() else register.getDisplay())
+            data.append(str(register.isBusy())[0])
+
+            insts.append(data)
+            if register.isBusy():
+                colors.append("red")       
+            else:
+                colors.append("")         
+
+        self._machine_state["RAT"]["contents"] = insts
         self._machine_state["RAT"]["colors"] = colors
-
 
     def __convertROB(self, rob):
         insts = []
@@ -229,7 +303,10 @@ class Graphics():
         self._machine_state["Reservation Station"]["contents"] = insts
         self._machine_state["Reservation Station"]["colors"] = colors
 
-    def updateContents(self, window, instructionTable=None, ROB=None, resStats=None, ARF=None, RAT=None):
+    def updateContents(self, window, cycle, instructionTable=None, ROB=None, resStats=None, ARF=None, RAT=None):
+        self._machine_state["metadata"]["cycle"] = cycle
+        window["cycle_number"].update(value=self._machine_state["metadata"]["cycle"])
+
         if instructionTable:
             self.__convertInstructionTable(instructionTable)
             window['inst_table'].update(self._machine_state["Instruction Table"]["contents"])

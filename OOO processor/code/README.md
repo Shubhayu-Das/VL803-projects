@@ -12,18 +12,12 @@ Roll number: IMT2018523
 -----------------------------
 
 ### Progress
-1. GUI - semi-complete; to be updated, linked
-2. Instruction data structure - initially complete. Might have to add on features later
-3. Reservation Station - Simplified, cleaned
-4. ROB - complete
-5. Load/Store buffer - Complete, duplicate of reservation station
-6. ARF - Done, registers must ALWAYS be called from ARF. It will take care if it is marked busy, and supply value from the RAT
-7. RAT - Done
+All individual blocks are complete. GUI is functional, but has scope for improvement. All components are connected EXCEPT for LW/SW path, which needs analysis.
 
-IMPORTANT: Connect registers in instructions to their values
+PENDING:
+1. LW/SW path
+2. Register access and flow of data path
 
-1. Connect components together - Pending
-2. Connect system to GUI
 ------------------------------
 
 ### Software libraries
@@ -42,3 +36,26 @@ $ pip install pysimplegui
 ```
 
 I have tested the code on Python 3.8.7 on both the OS (Windows 1903 build and Ubuntu 20.04.01 LTS), if there are any issues, please raise an Issue on Github. The GUI might appear very different in different OSes. That's just Python, I can't do anything about it.
+
+--------------------
+
+### Instructions for running
+
+This simulator supports LW/SW, ADD/SUB from RISC-V RV32I, and MUL/DIV from RISC-V RV32M. 
+
+- Place your ```asm``` program in the src folder.
+- Open a terminal and navigate to the ```code/``` folder. Execute: ```python assembler.py src/<filename.asm>```.
+- This will generate the ```elf``` file in ```build/<filename.elf>```.
+- Now run: ```python main.py build/<filename.elf>``` to launch the simulation
+- The simulation supports pausing, stepping back and forward - one step at a time.
+- To stop the simulation, simply close the window
+
+- To change the duration spent on each cycle, open ```constants.py``` and adjust the ```CYCLE_DURATION``` in *milliseconds* to your desired value.
+
+-----
+
+### Known issues
+
+The graphics library that I am using is not documented too well and is a bit troublesome to use. As a result, all the tables in the GUI might not fit properly on different screen sizes. It works properly on a 15.6 inch laptop screen, running Ubuntu 20.04.2 LTS. In case it isn't fitting in your screen:
+
+- Open ```constants.py``` and adjust the value of ```GUI_FONTSIZE```. Hopefully that will work. I am trying to figure out a fix to this bug

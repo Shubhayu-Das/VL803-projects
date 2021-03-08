@@ -1,3 +1,5 @@
+import copy
+import sys
 import PySimpleGUI as sg
 
 from arf import ARF
@@ -12,12 +14,16 @@ from rob import ROBTable
 import constants
 from gui import Graphics
 
-program_src = "riscv_binary.elf"
+if len(sys.argv) < 2:
+    program_src = "build/riscv_program.elf"
+else:
+    program_src = sys.argv[2]
+
 instructions = []
 cycle = 0
 
-ARFTable = ARF()
-RATTable = RAT()
+ARFTable = ARF(size=10)
+RATTable = RAT(size=10)
 
 ADD_RS = ReservationStation(constants.ADD_SUB, size=3)
 MUL_RS = ReservationStation(constants.MUL_DIV, size=2)
@@ -25,8 +31,6 @@ MUL_RS = ReservationStation(constants.MUL_DIV, size=2)
 # LS_Buffer = LoadStoreBuffer(size=3)
 ROB = ROBTable(size=8)
 
-# reservStationEntries = []
-# LSBufferEntries = []
 
 # Load in the program
 with open(program_src) as binary:
@@ -65,7 +69,8 @@ def tryDispatch():
                 if not ADD_RS.getBusyState():
                     if not RATTable.getBusyState():
                         ratRegister = RATTable.addEntry(instruction.rd)
-                        ratRegister.setLink(ROB.addEntry(instruction))
+
+                        ratRegister.setLink(ROB.addEntry(instruction, ratRegister))
                         instruction.rd.setLink(ratRegister)
                         ADD_RS.addEntry(instruction)
                         entry.RS_Start(cycle)
@@ -75,7 +80,8 @@ def tryDispatch():
                 if not MUL_RS.getBusyState():
                     if not RATTable.getBusyState():
                         ratRegister = RATTable.addEntry(instruction.rd)
-                        ratRegister.setLink(ROB.addEntry(instruction))
+                        
+                        ratRegister.setLink(ROB.addEntry(instruction, ratRegister))
                         instruction.rd.setLink(ratRegister)
                         MUL_RS.addEntry(instruction)
                         entry.RS_Start(cycle)
@@ -106,14 +112,14 @@ def tryCDBBroadcast():
     for RS in [ADD_RS, MUL_RS]:
         for entry in RS.getEntries():
             if entry:                
-                it_entry = instructionTable.getEntry(entry._instruction)
+                it_entry = instructionTable.getEntry(entry.getInstruction())
                 if it_entry.getBusyState() == constants.RunState.EX_END:
                     value = entry.getResult()
 
                     if value:
                         it_entry.CDB_Write(cycle)
                         
-                        robEntry = ROB.updateValue(entry._instruction, value)
+                        robEntry = ROB.updateValue(entry.getInstruction(), value)
                         for RS in [ADD_RS, MUL_RS]:
                             RS.updateEntries(robEntry, value)
                         return
@@ -123,23 +129,22 @@ def tryCommit():
     entry = ROB.getHead()
     if entry:
         if entry.getValue() != "NA":
-            ROB.removeEntry()
-            RATTable.updateRegister(entry.getDestination().getName(), entry.getValue(), False, None)
+            robEntry = ROB.removeEntry()
+            RATTable.updateRegister(robEntry.getDestination().getName(), robEntry.getValue(), False, None)
 
-            inst = entry.getInstruction()
+            inst = robEntry.getInstruction()
             instType = inst.disassemble()["command"]
 
             instructionTable.getEntry(inst).Commit(cycle)
+            
             if instType in ["ADD", "SUB"]:
-                ADD_RS.removeEntry(entry.getInstruction())
+                ADD_RS.removeEntry(inst)
             elif instType in ["MUL", "DIV"]:
-                MUL_RS.removeEntry(entry.getInstruction())
-
-            print(cycle, entry.getDestination().getName())
+                MUL_RS.removeEntry(inst)
 
 def logic_loop():
-    if constants.DEBUG:
-        print(cycle)
+    global cycle
+    cycle += 1
     
     tryCommit()
     tryCDBBroadcast()
@@ -148,25 +153,62 @@ def logic_loop():
     tryDispatch()
     
 
+RUN = True
+backwards = 1
+historyBuffer = []
 
 GUI = Graphics()
-counter = 0
 window = GUI.generateWindow()
 
 # Main event loop
 while True:
     event, values = window.read(timeout=constants.CYCLE_DURATION)
+
     if event == sg.WIN_CLOSED:
         break
+    elif event == "pause_button":
+        if RUN:
+            window["pause_button"].update(text="Continue")
+        else:
+            window["pause_button"].update(text="  Pause  ")
+        RUN = not RUN
+    elif event in ["previous_button", "next_button"] and not RUN:
+        if backwards < cycle:
+            if event == "previous_button":
+                backwards += 1
+            elif event == "next_button" and ((cycle - backwards) < len(historyBuffer)-1):
+                backwards -= 1
 
-    counter += 1
-    if counter % 10 == 0:
-        cycle += 1
-        # next(instructionTable._entries[4], cycle)
+            index = cycle - backwards
+
+            GUI.updateContents(
+                window,
+                index + 1,
+                historyBuffer[index][0],
+                historyBuffer[index][1],
+                resStats=historyBuffer[index][2],
+                ARF=historyBuffer[index][3],
+                RAT=historyBuffer[index][4]
+            )
+        
+    if RUN:
+        backwards = 1
         logic_loop()
+        
+        historyBuffer.append([
+            copy.deepcopy(instructionTable),
+            copy.deepcopy(ROB),
+            {
+                constants.ADD_SUB: copy.deepcopy(ADD_RS),
+                constants.MUL_DIV: copy.deepcopy(MUL_RS)
+            },
+            copy.deepcopy(ARFTable),
+            copy.deepcopy(RATTable)
+        ])
         
         GUI.updateContents(
             window,
+            cycle,
             instructionTable,
             ROB,
             resStats={
