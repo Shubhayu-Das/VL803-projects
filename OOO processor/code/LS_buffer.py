@@ -72,21 +72,3 @@ class LoadStoreBuffer:
 
     def getFreeState(self):
         return self._is_full
-
-
-if __name__ == "__main__":
-    from instruction import Instruction
-
-    lw_r10_r2_32 = "000000100000 01010 010 00010 1010011"
-    inst = Instruction.segment(lw_r10_r2_32)
-
-    LSBuffer = LoadStoreBuffer(3)
-
-    entry1 = LSBuffer.addEntry(inst)
-    entry2 = LSBuffer.addEntry(inst)
-    entry3 = LSBuffer.addEntry(inst)
-    entry4 = LSBuffer.addEntry(inst)
-    LSBuffer.removeEntry(entry2)
-    entry5 = LSBuffer.addEntry(inst)
-    LSBuffer.removeEntry(entry3)
-    entry6 = LSBuffer.addEntry(inst)

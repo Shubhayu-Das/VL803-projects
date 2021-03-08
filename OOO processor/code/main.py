@@ -2,8 +2,7 @@ import copy
 import sys
 import PySimpleGUI as sg
 
-from arf import ARF
-from rat import RAT
+from register_bank import RegisterBank as ARF
 from instruction import Instruction
 
 from reservation_station import ReservationStation, ReservationStationEntry
@@ -23,7 +22,6 @@ instructions = []
 cycle = 0
 
 ARFTable = ARF(size=10)
-RATTable = RAT(size=10)
 
 ADD_RS = ReservationStation(constants.ADD_SUB, size=3)
 MUL_RS = ReservationStation(constants.MUL_DIV, size=2)
@@ -31,28 +29,18 @@ MUL_RS = ReservationStation(constants.MUL_DIV, size=2)
 # LS_Buffer = LoadStoreBuffer(size=3)
 ROB = ROBTable(size=8)
 
-
 # Load in the program
 with open(program_src) as binary:
     program = binary.readlines()
     program = [inst.strip() for inst in program]
 
     for PC, inst in enumerate(program):
-        instructions.append(Instruction.segment(inst, ARFTable, PC=PC+1))
-
-if constants.DEBUG:
-    print("Instructions loaded and parsed")
-    for inst in instructions:
-        print(inst.disassemble())
+        instructions.append(Instruction.segment(inst, PC=PC+1))
 
 instructionTable = InstructionTable(size=len(instructions))
 
 for instruction in instructions:
     instructionTable.addEntry(instruction)
-
-if constants.DEBUG:
-    print("\nAll instructions added to instruction queue")
-    print(instructionTable)
 
 
 # Function to try and dispatch next instruction if corresponding RS is free
@@ -65,40 +53,35 @@ def tryDispatch():
             instruction = entry.getInstruction()
             instruction_type = instruction.disassemble()["command"]
 
-            if instruction_type in ["ADD", "SUB"]:
-                if not ADD_RS.getBusyState():
-                    if not RATTable.getBusyState():
-                        ratRegister = RATTable.addEntry(instruction.rd)
+            RS = None
 
-                        ratRegister.setLink(ROB.addEntry(instruction, ratRegister))
-                        instruction.rd.setLink(ratRegister)
-                        ADD_RS.addEntry(instruction)
-                        entry.RS_Start(cycle)
-                        break
-    
+            if instruction_type in ["ADD", "SUB"]:
+                RS = ADD_RS
+
             elif instruction_type in ["MUL", "DIV"]:
-                if not MUL_RS.getBusyState():
-                    if not RATTable.getBusyState():
-                        ratRegister = RATTable.addEntry(instruction.rd)
-                        
-                        ratRegister.setLink(ROB.addEntry(instruction, ratRegister))
-                        instruction.rd.setLink(ratRegister)
-                        MUL_RS.addEntry(instruction)
-                        entry.RS_Start(cycle)
-                        break
+                RS = MUL_RS
+
+            if RS and not RS.isBusy():
+                RS.addEntry(instruction, ARFTable, ROB)
+
+                destination = ARFTable.getRegister(entry._instruction.rd)
+                destination.setLink(ROB.addEntry(entry._instruction, destination))
+                entry.RS_Start(cycle)
+                break
     
-            elif instruction_type in ["LW", "SW"]:
+            if instruction_type in ["LW", "SW"]:
                 pass
 
 # Function to simulate the execution of the process
 def tryExecute():
     for RS in [ADD_RS, MUL_RS]:
         for entry in RS.getEntries():
-            if entry:                
+            if entry:
                 it_entry = instructionTable.getEntry(entry._instruction)
-                if it_entry.getBusyState() == constants.RunState.RS and entry.isExecuteable():
-                        it_entry.EX_Start(cycle)
-                        break
+
+                if it_entry.getBusyState() == constants.RunState.RS and entry.isExecuteable():                    
+                    it_entry.EX_Start(cycle)
+                    break
 
 def proceedExecuting():
     for RS in [ADD_RS, MUL_RS]:
@@ -120,17 +103,18 @@ def tryCDBBroadcast():
                         it_entry.CDB_Write(cycle)
                         
                         robEntry = ROB.updateValue(entry.getInstruction(), value)
-                        for RS in [ADD_RS, MUL_RS]:
-                            RS.updateEntries(robEntry, value)
+                        if robEntry:
+                            for RS in [ADD_RS, MUL_RS]:
+                                RS.updateEntries(robEntry, value, ARFTable)
+
                         return
 
-#TODO
 def tryCommit():
-    entry = ROB.getHead()
-    if entry:
-        if entry.getValue() != "NA":
-            robEntry = ROB.removeEntry()
-            RATTable.updateRegister(robEntry.getDestination().getName(), robEntry.getValue(), False, None)
+    robEntry = ROB.getHead()
+    if robEntry:
+        if robEntry.getValue() != "NA":
+            ROB.removeEntry()
+            ARFTable.updateRegister(robEntry)
 
             inst = robEntry.getInstruction()
             instType = inst.disassemble()["command"]
@@ -141,6 +125,7 @@ def tryCommit():
                 ADD_RS.removeEntry(inst)
             elif instType in ["MUL", "DIV"]:
                 MUL_RS.removeEntry(inst)
+
 
 def logic_loop():
     global cycle
@@ -153,6 +138,7 @@ def logic_loop():
     tryDispatch()
     
 
+# GUI related things, with event loop, which updates the processor in every clock cycle
 RUN = False
 backwards = 1
 historyBuffer = []
@@ -178,7 +164,7 @@ while True:
         if backwards < cycle:
             if event == "previous_button":
                 backwards += 1
-            elif event == "next_button" and ((cycle - backwards) < len(historyBuffer)):
+            elif event == "next_button" and ((cycle - backwards) < len(historyBuffer) - 1):
                 backwards -= 1
 
             index = cycle - backwards
@@ -190,10 +176,9 @@ while True:
                 historyBuffer[index][1],
                 resStats=historyBuffer[index][2],
                 ARF=historyBuffer[index][3],
-                RAT=historyBuffer[index][4]
             )
         
-    if RUN:
+    if RUN or (not RUN and event == "next_button"):
         backwards = 1
         logic_loop()
         
@@ -205,7 +190,6 @@ while True:
                 constants.MUL_DIV: copy.deepcopy(MUL_RS)
             },
             copy.deepcopy(ARFTable),
-            copy.deepcopy(RATTable)
         ])
         
         GUI.updateContents(
@@ -218,9 +202,6 @@ while True:
                 constants.MUL_DIV: MUL_RS
                 },
             ARF=ARFTable,
-            RAT=RATTable
         )
-
-
 
 window.close()

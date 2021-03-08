@@ -1,7 +1,11 @@
 DEBUG = False
 GUI_FONTSIZE   = 16
 LIMIT          = 10
-CYCLE_DURATION = 1500
+CYCLE_DURATION = 200
+
+ADD_SUB = "ADD/SUB"
+MUL_DIV = "MUL/DIV"
+LW = "LW"
 
 NumCycles = {
     "ADD": 1,
@@ -11,6 +15,7 @@ NumCycles = {
     "LW": 5
 }
 
+
 class RunState:
     NOT_STARTED = "NOT STARTED"
     RS          = "RS"
@@ -19,7 +24,3 @@ class RunState:
     CDB         = "CDB"
     COMMIT      = "COMMIT"        
     
-
-ADD_SUB = "ADD/SUB"
-MUL_DIV = "MUL/DIV"
-LW = "LW"

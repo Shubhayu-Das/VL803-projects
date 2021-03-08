@@ -29,10 +29,6 @@ class Graphics():
                     "contents": [f" R{i} " for i in range(0, LIMIT)],
                     "colors": []
                 },
-                "RAT": {
-                    "contents": [f" R{i} " for i in range(0, LIMIT)],
-                    "colors": []
-                },
                 "metadata": {
                     "cycle": 0
                 }
@@ -98,7 +94,6 @@ class Graphics():
         reserv = self._machine_state["Reservation Station"]
         ROB = self._machine_state["ROB"]
         ARF = self._machine_state["ARF"]
-        RAT = self._machine_state["RAT"]
         nCycles = {
             "contents": [[inst, cycles] for inst, cycles in NumCycles.items()],
             "colors": []
@@ -111,8 +106,7 @@ class Graphics():
         reservationHeading = ["Type", "Instruction", "Busy", "Dest tag",
                               "src tag1", "src tag2", "val 1", "val 2"]
         robHeading = [" Name ", "  Instruction  ", " Dest. ", "  Value  "]
-        arfHeading = ["Reg", "Value", " Map ", "Busy"]
-        ratHeading = ["Reg", "Value", " Map ", "Busy"]
+        arfHeading = ["Reg", "   Value   ", "Mapping", "Busy"]
         cycleHeading = ["Instr.", "No. of cycles"]
 
         instructionTable = self.__generateTable(
@@ -128,7 +122,6 @@ class Graphics():
             "Reservation Station", reserv, reservationHeading, key="reserve_station")
         ROBTable = self.__generateTable("ROB", ROB, robHeading, n_rows=8, key="rob")
         ARFTable = self.__generateTable("ARF", ARF, arfHeading, n_rows=LIMIT, key="arf")
-        RATTable = self.__generateTable("RAT", RAT, ratHeading, n_rows=LIMIT,key="rat")
         CycleInfoTable = self.__generateTable("No. of Cycles", nCycles, cycleHeading, n_rows=len(NumCycles),key="num_cycles")
 
         pauseButton = [sg.Button(
@@ -156,15 +149,18 @@ class Graphics():
             [cycleNumber, CycleInfoTable, controlPanel],
             key="layout_col1"
         )]
+
         col2 = [sg.Column(
             [instructionTable, [sg.Column([loadStoreBufferTable, reservationStationTable])]],
             grab=True,
             element_justification="center",
             key="layout_col2"
         )]
+
         col3 = [sg.Column(
-            [ARFTable + RATTable, ROBTable],
+            [ARFTable, ROBTable],
             grab=True,
+            element_justification="center",
             expand_x=True,
             key="layout_col3"
         )]
@@ -220,7 +216,7 @@ class Graphics():
 
             data.append(register.getName())
             data.append(register.getValue())
-            data.append("-" if register.getDisplay() == register.getValue() else register.getDisplay())
+            data.append(register.getLink() if register.getLink() else "-")
             data.append(str(register.isBusy())[0])
 
             insts.append(data)
@@ -228,27 +224,6 @@ class Graphics():
 
         self._machine_state["ARF"]["contents"] = insts
         self._machine_state["ARF"]["colors"] = colors
-
-    def __convertRAT(self, RATTable):
-        insts = []
-        colors = []
-
-        for register in list(RATTable.getEntries().values())[:LIMIT]:
-            data = []
-
-            data.append(register.getName())
-            data.append(register.getValue())
-            data.append("-" if register.getDisplay() == register.getValue() else register.getDisplay())
-            data.append(str(register.isBusy())[0])
-
-            insts.append(data)
-            if register.isBusy():
-                colors.append("red")       
-            else:
-                colors.append("")         
-
-        self._machine_state["RAT"]["contents"] = insts
-        self._machine_state["RAT"]["colors"] = colors
 
     def __convertROB(self, rob):
         insts = []
@@ -278,18 +253,12 @@ class Graphics():
                 if entry:
                     data.append(name)
                     data.append(entry._instruction.strDisassembled())
-                    data.append(str(entry._busy))
-                    data.append(entry._dest.getName())
+                    
+                    data.append(str(entry._busy)[0])
+                    data.append(entry._dest)
 
-                    if isinstance(entry._src_val1, str):
-                        data.append(entry._src_tag1.getDisplay())
-                    else:
-                        data.append(entry._src_tag1)
-
-                    if isinstance(entry._src_val2, str):
-                        data.append(entry._src_tag2.getDisplay())
-                    else:
-                        data.append(entry._src_tag2)
+                    data.append(entry._src_tag1)
+                    data.append(entry._src_tag2)
                     
                     data.append(str(entry._src_val1))
                     data.append(str(entry._src_val2))
@@ -303,7 +272,7 @@ class Graphics():
         self._machine_state["Reservation Station"]["contents"] = insts
         self._machine_state["Reservation Station"]["colors"] = colors
 
-    def updateContents(self, window, cycle, instructionTable=None, ROB=None, resStats=None, ARF=None, RAT=None):
+    def updateContents(self, window, cycle, instructionTable=None, ROB=None, resStats=None, ARF=None):
         self._machine_state["metadata"]["cycle"] = cycle
         window["cycle_number"].update(value=self._machine_state["metadata"]["cycle"])
 
@@ -322,12 +291,7 @@ class Graphics():
         if ARF:
             self.__convertARF(ARF)
             window['arf'].update(self._machine_state["ARF"]["contents"])
-
-        if RAT:
-            self.__convertRAT(RAT)
-            window['rat'].update(self._machine_state["RAT"]["contents"])
         
-
 
 if __name__ == "__main__":
 

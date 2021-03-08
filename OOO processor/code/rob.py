@@ -88,26 +88,15 @@ class ROBTable(RegisterBank):
 
         if DEBUG:
             print(f"REMOVED from ROB @ {removedValue}")
-        return removedValue
+
+    def getValue(self, entry):
+        if entry:
+            return self._bank[entry].getValue()
+        else:
+            return False
 
     def getHead(self):
         return self._bank[f"ROB{self._tail}"]
 
     def getEntries(self):
         return self._bank
-
-
-if __name__ == "__main__":
-    rob = ROBTable(2)
-
-    entry1 = ROBEntry("ADD R1, R2, R3", "RAT.R3", 10, name="1")
-    entry2 = ROBEntry("ADD R1, R2, R3", "RAT.R4", 10, name="2")
-    entry3 = ROBEntry("ADD R1, R2, R3", "RAT.R5", 10, name="3")
-
-    rob.addEntry(entry1)
-    rob.addEntry(entry1)
-    rob.addEntry(entry2)
-    rob.addEntry(entry1)
-    rob.removeEntry()
-    rob.addEntry(entry1)
-    rob.addEntry(entry1)

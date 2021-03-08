@@ -12,13 +12,14 @@ instruction - funct7 - rs2 - rs1 - funct3 - rd - opcode
 ADD/SUB/MUL/DIV rd, rs1, rs2
 
 References: 
-1. ADD/SUB/LW/SW come from RV32I: https://github.com/riscv/riscv-opcodes/blob/master/opcodes-rv32i
+1.  ADD/SUB/LW/SW come from 
+    RV32I: https://github.com/riscv/riscv-opcodes/blob/master/opcodes-rv32i
 
-2. MUL/DIV come from RV32M: https://github.com/riscv/riscv-opcodes/blob/master/opcodes-rv32m
-
+2.  MUL/DIV come from 
+    RV32M: https://github.com/riscv/riscv-opcodes/blob/master/opcodes-rv32m
 '''
-from arf import ARFRegister
-from rat import RAT
+
+from register_bank import Register
 
 
 class Instruction:
@@ -72,7 +73,6 @@ class Instruction:
             }
             
         else:
-
             if self.opcode == "0110011":
                 if self.funct3 == "000":
                     if self.funct7 == "0000000":
@@ -99,29 +99,27 @@ class Instruction:
     def strDisassembled(self):
         instruction = self.disassemble()
         rd = instruction["rd"]
-        if isinstance(instruction["rd"], ARFRegister):
-            rd = rd.getName()
     
-        rs1 = instruction["rs1"].getName()
+        rs1 = instruction["rs1"]
 
         if "offset" in instruction.keys():
             last = instruction["offset"] 
         else:
-            last = instruction["rs2"].getName()
-            # last = last.split(".")[-1]
+            last = instruction["rs2"]
+
         return f"{instruction['command']} {rd}, {rs1}, {last}"
 
     @classmethod
-    def segment(self, instruction, arf, PC=-1):
+    def segment(self, instruction, PC=-1):
         instruction = instruction.replace(" ", "")
         if len(instruction) != 32:
             return -1
 
         funct7 = instruction[0:7]
-        rs2 = arf.getRegister(f"R{int(instruction[7:12], 2)}")
-        rs1 = arf.getRegister(f"R{int(instruction[12:17], 2)}")
+        rs2 = f"R{int(instruction[7:12], 2)}"
+        rs1 = f"R{int(instruction[12:17], 2)}"
         funct3 = instruction[17:20]
-        rd = arf.getRegister(f"R{int(instruction[20:25], 2)}")
+        rd = f"R{int(instruction[20:25], 2)}"
         opcode = instruction[25:32]
         hasOffset = False
 
@@ -143,14 +141,6 @@ class Instruction:
 
     def __str__(self):
         if self.hasOffset:
-            return f"<[PC={self.PC}] {self.type}-Instruction offset:{self.offset} rs1:{self.rs1.getSource()} funct3:{self.funct3} rd:{self.rd.getSource()} opcode:{self.opcode}>"
+            return f"<[PC={self.PC}] {self.type}-Instruction offset:{self.offset} rs1:{self.rs1} funct3:{self.funct3} rd:{self.rd} opcode:{self.opcode}>"
         else:
-            return f"<[PC={self.PC}] {self.type}-Instruction funct7:{self.funct7} rs2:{self.rs2.getSource()} rs1:{self.rs1.getSource()} funct3:{self.funct3} rd:{self.rd.getSource()} opcode:{self.opcode}>"
-
-
-if __name__ == "__main__":
-    add_r9_r20_r21 = "0000 0001 0101 1010 0000 0100 1011 0011"
-    lw_r10_r2_32 = "000000100000 01010 010 00010 1010011"
-    inst = Instruction.segment(add_r9_r20_r21)
-    print(inst)
-    print(inst.disassemble())
+            return f"<[PC={self.PC}] {self.type}-Instruction funct7:{self.funct7} rs2:{self.rs2} rs1:{self.rs1} funct3:{self.funct3} rd:{self.rd} opcode:{self.opcode}>"

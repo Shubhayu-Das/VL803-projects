@@ -12,11 +12,14 @@ Roll number: IMT2018523
 -----------------------------
 
 ### Progress
-All individual blocks are complete. GUI is functional, but has scope for improvement. All components are connected EXCEPT for LW/SW path, which needs analysis.
+Completed mostly, apart from few doubts.
 
 PENDING:
-1. LW/SW path
-2. Register access and flow of data path
+1. LW/SW path, with added complications
+2. If RS is not free, should a ROB entry still be made? Or should the processor stall?
+3. Check all the timings. Mostly, all are correct
+4. Code cleanup
+5. Additional GUI features
 
 ------------------------------
 

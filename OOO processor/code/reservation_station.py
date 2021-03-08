@@ -3,22 +3,30 @@ from instruction import Instruction
 
 
 class ReservationStationEntry:
-    def __init__(self, instr, busy=True):
+    def __init__(self, instr, ARFTable, ROB, busy=True):
         self._instruction = instr
         self._busy = busy
         self._dest = instr.rd
+        self._rob_updated = False
 
-        self._src_val1, self._src_tag1 = self.__getValSrc(instr.rs1)
-        self._src_val2, self._src_tag2 = self.__getValSrc(instr.rs2)       
+        self._src_val1, self._src_tag1 = self.__getSrcValTag(ARFTable.getRegister(instr.rs1), ROB)
+        self._src_val2, self._src_tag2 = self.__getSrcValTag(ARFTable.getRegister(instr.rs2), ROB)       
 
-    def __getValSrc(self, source):
-        if not source.getLink():
-            return source.getValue(), "-"
+    def __getSrcValTag(self, source, ROB):
+        if source.isBusy():
+            if ROB.getValue(source.getLink()) == "NA":
+                return "-", source.getLink()
+            else:
+                return ROB.getValue(source.getLink()), "-"
         else:
-            return "-", source.getSource()
+            return source.getValue(), "-"
 
     def isExecuteable(self):
-        return (not isinstance(self._src_val1, str)) and (not isinstance(self._src_val2, str))
+        if self._rob_updated:
+            self._rob_updated = False
+            return False
+        else:
+            return (self._src_val1 != "-") and (self._src_val2 != "-")
 
     def __exec(self):
         command = self._instruction.disassemble()["command"]
@@ -32,10 +40,7 @@ class ReservationStationEntry:
         return lookup[command](self._src_val1, self._src_val2)
 
     def getResult(self):
-        if self.isExecuteable():
-            return self.__exec()
-        else:
-            return False
+        return self.__exec()
 
     def getInstruction(self):
         return self._instruction
@@ -46,7 +51,7 @@ class ReservationStationEntry:
     def isBusy(self):
         return self._busy
 
-    def destination(self):
+    def getDestination(self):
         return self._dest
 
     def __str__(self):
@@ -68,29 +73,41 @@ class ReservationStation:
         self._size = size
         self._buffer = [None for _ in range(size)]
         self._index = 0
+        self._just_freed = False
 
-    def __updateFreeIndex(self):
+    def __updateFreeIndex(self, update=False):
         counter = 0
+        backup = None
+
+        if update and not self._is_full:
+            return
+
         while(counter < self._size):
             self._index = (self._index + 1) % self._size
             if self._buffer[self._index] is None:
-                break
+                if self._index == self._just_freed:
+                    backup == self._index
+                else:
+                    break
             counter += 1
 
         if counter == self._size:
-            self._is_full = True
-            self._index = -1
+            if backup:
+                self._index = backup
+            else:
+                self._is_full = True
+                self._index = -1
         else:
             self._is_full = False
 
-    def addEntry(self, instruction):
+    def addEntry(self, instruction, ARFTable, ROB):
         if self._is_full:
             if DEBUG:
                 print("Reservation station is full")
             return False
 
         if isinstance(instruction, Instruction):
-            entry = ReservationStationEntry(instruction)
+            entry = ReservationStationEntry(instruction, ARFTable, ROB)
         elif isinstance(instruction, ReservationStationEntry):
             entry = instruction
         else:
@@ -103,16 +120,18 @@ class ReservationStation:
         self.__updateFreeIndex()
         return True
 
-    def updateEntries(self, robEntry, value):
+    def updateEntries(self, robEntry, value, arf):
         for entry in self._buffer:
             if entry:
-                if entry._instruction.rs1.getLink() == robEntry.getDestination():
-                    entry._src_val1 = float(robEntry.getValue())
+                if arf.getRegister(entry._instruction.rs1) == robEntry.getDestination():
+                    entry._src_val1 = robEntry.getValue()
                     entry._src_tag1 = "-"
+                    entry._rob_updated = True
 
-                if entry._instruction.rs2.getLink() == robEntry.getDestination():
-                    entry._src_val2 = float(robEntry.getValue())
+                if arf.getRegister(entry._instruction.rs2) == robEntry.getDestination():
+                    entry._src_val2 = robEntry.getValue()
                     entry._src_tag2 = "-"
+                    entry._rob_updated = True
 
     def removeEntry(self, entry):
         if isinstance(entry, Instruction):
@@ -127,17 +146,22 @@ class ReservationStation:
 
         if entry in self._buffer:
             location = self._buffer.index(entry)
+            self._just_freed = location
             self._buffer[location] = None
-            self.__updateFreeIndex()
+            self.__updateFreeIndex(update=True)
 
             if DEBUG:
                 print(f"Removed from RS{location + 1}")
+
             return True
         else:
             return False
 
-    def getBusyState(self):
-        return self._is_full
+    def isBusy(self):
+        condition = self._is_full and not (self._index == self._just_freed)
+        self._just_freed = False
+
+        return condition
 
     def getEntries(self):
         return self._buffer
@@ -147,22 +171,3 @@ class ReservationStation:
                     Station Size: {self._size}
                     Busy State: {self.getBusyState()}
                 """
-
-
-if __name__ == "__main__":
-    from instruction import Instruction
-    from constants import ADD_SUB
-
-    add_r9_r20_r21 = "0000 0001 0101 1010 0000 0100 1011 0011"
-    inst = Instruction.segment(add_r9_r20_r21)
-
-    addResvStation = ReservationStation(ADD_SUB, 3)
-
-    entry1 = addResvStation.addEntry(inst)
-    entry2 = addResvStation.addEntry(inst)
-    entry3 = addResvStation.addEntry(inst)
-    entry4 = addResvStation.addEntry(inst)
-    addResvStation.removeEntry(entry2)
-    entry5 = addResvStation.addEntry(inst)
-    addResvStation.removeEntry(entry3)
-    entry6 = addResvStation.addEntry(inst)

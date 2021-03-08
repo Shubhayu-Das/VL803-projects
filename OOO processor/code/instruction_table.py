@@ -3,9 +3,8 @@ from instruction import Instruction
 
 
 class InstructionTableEntry:
-    def __init__(self, instruction, id):
+    def __init__(self, instruction):
         self._instruction = instruction
-        self._id = id
         self._state = RunState.NOT_STARTED
         self._rs_issue_cycle = ""
         self._exec_start = ""
@@ -56,7 +55,7 @@ class InstructionTable:
         self._entries = [None for _ in range(size)]
 
     def addEntry(self, instruction):
-        self._entries[self._index] = InstructionTableEntry(instruction, self._index)
+        self._entries[self._index] = InstructionTableEntry(instruction)
 
         self._index += 1
 
