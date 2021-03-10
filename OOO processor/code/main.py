@@ -21,12 +21,13 @@ else:
 instructions = []
 cycle = 0
 
-ARFTable = ARF(size=10)
+# 12, 16, 45, 5, 3, 4, 1, 2, 2, 3
+ARFTable = ARF(size=10, init=[i for i in range(1, 11)])
 
 ADD_RS = ReservationStation(constants.ADD_SUB, size=3)
 MUL_RS = ReservationStation(constants.MUL_DIV, size=2)
 
-# LS_Buffer = LoadStoreBuffer(size=3)
+LS_Buffer = LoadStoreBuffer(size=3, memory="data_memory.dat")
 ROB = ROBTable(size=8)
 
 # Load in the program
@@ -61,20 +62,27 @@ def tryDispatch():
             elif instruction_type in ["MUL", "DIV"]:
                 RS = MUL_RS
 
-            if RS and not RS.isBusy():
-                RS.addEntry(instruction, ARFTable, ROB)
+            elif instruction_type in ["LW", "SW"]:
+                RS = LS_Buffer
 
-                destination = ARFTable.getRegister(entry._instruction.rd)
-                destination.setLink(ROB.addEntry(entry._instruction, destination))
-                entry.RS_Start(cycle)
-                break
-    
-            if instruction_type in ["LW", "SW"]:
-                pass
+            if RS:
+                if RS.isBusy():
+                    break
+                else:
+                    RS.addEntry(instruction, ARFTable, ROB)
+
+                    destination = ARFTable.getRegister(entry._instruction.rd)
+                    destination.setLink(ROB.addEntry(entry._instruction, destination))
+
+                    if RS == LS_Buffer:
+                        destination.setValue("-")
+
+                    entry.RS_Start(cycle)
+                    break
 
 # Function to simulate the execution of the process
 def tryExecute():
-    for RS in [ADD_RS, MUL_RS]:
+    for RS in [LS_Buffer, ADD_RS, MUL_RS]:
         for entry in RS.getEntries():
             if entry:
                 it_entry = instructionTable.getEntry(entry._instruction)
@@ -84,7 +92,7 @@ def tryExecute():
                     break
 
 def proceedExecuting():
-    for RS in [ADD_RS, MUL_RS]:
+    for RS in [LS_Buffer, ADD_RS, MUL_RS]:
         for entry in RS.getEntries():
             if entry:                
                 it_entry = instructionTable.getEntry(entry._instruction)
@@ -92,7 +100,7 @@ def proceedExecuting():
                     it_entry.EX_Tick(cycle)
 
 def tryCDBBroadcast():
-    for RS in [ADD_RS, MUL_RS]:
+    for RS in [LS_Buffer, ADD_RS, MUL_RS]:
         for entry in RS.getEntries():
             if entry:                
                 it_entry = instructionTable.getEntry(entry.getInstruction())
@@ -109,7 +117,7 @@ def tryCDBBroadcast():
 
                         return
 
-def tryCommit():
+def tryCommit(): 
     robEntry = ROB.getHead()
     if robEntry:
         if robEntry.getValue() != "NA":
@@ -121,10 +129,15 @@ def tryCommit():
 
             instructionTable.getEntry(inst).Commit(cycle)
             
+            for RS in [ADD_RS, MUL_RS]:
+                RS.updateDependencies(ARFTable, ROB)
+
             if instType in ["ADD", "SUB"]:
                 ADD_RS.removeEntry(inst)
             elif instType in ["MUL", "DIV"]:
                 MUL_RS.removeEntry(inst)
+            elif instType in ["LW", "SW"]:
+                LS_Buffer.removeEntry(inst)
 
 
 def logic_loop():
@@ -176,6 +189,7 @@ while True:
                 historyBuffer[index][1],
                 resStats=historyBuffer[index][2],
                 ARF=historyBuffer[index][3],
+                LS_Buffer=historyBuffer[index][4]
             )
         
     if RUN or (not RUN and event == "next_button"):
@@ -190,6 +204,7 @@ while True:
                 constants.MUL_DIV: copy.deepcopy(MUL_RS)
             },
             copy.deepcopy(ARFTable),
+            copy.deepcopy(LS_Buffer)
         ])
         
         GUI.updateContents(
@@ -197,11 +212,12 @@ while True:
             cycle,
             instructionTable,
             ROB,
-            resStats={
+            {
                 constants.ADD_SUB: ADD_RS,
                 constants.MUL_DIV: MUL_RS
-                },
-            ARF=ARFTable,
+            },
+            ARFTable,
+            LS_Buffer
         )
 
 window.close()

@@ -103,11 +103,9 @@ class Instruction:
         rs1 = instruction["rs1"]
 
         if "offset" in instruction.keys():
-            last = instruction["offset"] 
+            return f"{instruction['command']} {rd}, {instruction['offset']}({rs1})"
         else:
-            last = instruction["rs2"]
-
-        return f"{instruction['command']} {rd}, {rs1}, {last}"
+            return f"{instruction['command']} {rd}, {rs1}, {instruction['rs2']}"
 
     @classmethod
     def segment(self, instruction, PC=-1):

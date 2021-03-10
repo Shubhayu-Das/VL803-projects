@@ -1,5 +1,5 @@
 ; Sample program
-LW  x3, 0(x2)
+LW  x3, 10(x2)
 DIV x2, x3, x4
 MUL x1, x5, x6
 ADD x3, x7, x8

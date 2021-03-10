@@ -8,16 +8,14 @@ class ReservationStationEntry:
         self._busy = busy
         self._dest = instr.rd
         self._rob_updated = False
+        self._value = None
 
         self._src_val1, self._src_tag1 = self.__getSrcValTag(ARFTable.getRegister(instr.rs1), ROB)
         self._src_val2, self._src_tag2 = self.__getSrcValTag(ARFTable.getRegister(instr.rs2), ROB)       
 
     def __getSrcValTag(self, source, ROB):
         if source.isBusy():
-            if ROB.getValue(source.getLink()) == "NA":
-                return "-", source.getLink()
-            else:
-                return ROB.getValue(source.getLink()), "-"
+            return "-", source.getLink()
         else:
             return source.getValue(), "-"
 
@@ -26,7 +24,11 @@ class ReservationStationEntry:
             self._rob_updated = False
             return False
         else:
-            return (self._src_val1 != "-") and (self._src_val2 != "-")
+            condition = (self._src_val1 != "-") and (self._src_val2 != "-")
+            if condition:
+                self._value = self.__exec()
+            
+            return condition
 
     def __exec(self):
         command = self._instruction.disassemble()["command"]
@@ -39,14 +41,18 @@ class ReservationStationEntry:
 
         return lookup[command](self._src_val1, self._src_val2)
 
+    def updateDependencies(self, ARFTable, ROB):
+        if self._src_val1 == "-":
+            self._src_val1, self._src_tag1 = self.__getSrcValTag(ARFTable.getRegister(self._instruction.rs1), ROB)
+        
+        if self._src_val2 == "-":
+            self._src_val2, self._src_tag2 = self.__getSrcValTag(ARFTable.getRegister(self._instruction.rs2), ROB)
+
     def getResult(self):
-        return self.__exec()
+        return self._value
 
     def getInstruction(self):
         return self._instruction
-
-    def toggleState(self):
-        self._busy = not self._busy
 
     def isBusy(self):
         return self._busy
@@ -108,8 +114,7 @@ class ReservationStation:
 
         if isinstance(instruction, Instruction):
             entry = ReservationStationEntry(instruction, ARFTable, ROB)
-        elif isinstance(instruction, ReservationStationEntry):
-            entry = instruction
+        
         else:
             return False
 
@@ -132,6 +137,11 @@ class ReservationStation:
                     entry._src_val2 = robEntry.getValue()
                     entry._src_tag2 = "-"
                     entry._rob_updated = True
+
+    def updateDependencies(self, ARFTable, ROB):
+        for entry in self._buffer:
+            if entry:
+                entry.updateDependencies(ARFTable, ROB)
 
     def removeEntry(self, entry):
         if isinstance(entry, Instruction):

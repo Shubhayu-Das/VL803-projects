@@ -272,7 +272,30 @@ class Graphics():
         self._machine_state["Reservation Station"]["contents"] = insts
         self._machine_state["Reservation Station"]["colors"] = colors
 
-    def updateContents(self, window, cycle, instructionTable=None, ROB=None, resStats=None, ARF=None):
+    def __convertLSBuffer(self, LW_SW):
+        insts = []
+        colors = []
+        for entry in LW_SW.getEntries():
+            data = []
+            if entry:
+                data.append(entry.getInstruction().strDisassembled())
+                
+                data.append(str(entry.isBusy())[0])
+                data.append(entry._dest)
+
+                data.append(f"{entry._offset}+{entry._src_reg.getName()}")
+                data.append(entry._src_reg.getName())
+
+            else:
+                data = [""] * 5
+
+            insts.append(data)
+            colors.append("")
+
+        self._machine_state["Load Store Buffer"]["contents"] = insts
+        self._machine_state["Load Store Buffer"]["colors"] = colors
+
+    def updateContents(self, window, cycle, instructionTable=None, ROB=None, resStats=None, ARF=None, LS_Buffer=None):
         self._machine_state["metadata"]["cycle"] = cycle
         window["cycle_number"].update(value=self._machine_state["metadata"]["cycle"])
 
@@ -291,6 +314,10 @@ class Graphics():
         if ARF:
             self.__convertARF(ARF)
             window['arf'].update(self._machine_state["ARF"]["contents"])
+
+        if LS_Buffer:
+            self.__convertLSBuffer(LS_Buffer)
+            window['ls_buffer_table'].update(self._machine_state["Load Store Buffer"]["contents"])
         
 
 if __name__ == "__main__":
