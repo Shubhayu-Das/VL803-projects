@@ -15,9 +15,10 @@ Roll number: IMT2018523
 Completed mostly, apart from few doubts.
 
 PENDING:
-1. Code cleanup and commenting everything
+1. Convert main.py into a Tomasulo class?
 2. Additional GUI features
-3. Remove unnecessary code
+3. Document the code base and improve this README
+4. See if anything can be done about the resolution scaling
 
 ------------------------------
 
@@ -36,7 +37,7 @@ On Windows:
 $ pip install pysimplegui
 ```
 
-I have tested the code on Python 3.8.7 on both the OS (Windows 1903 build and Ubuntu 20.04.01 LTS), if there are any issues, please raise an Issue on Github. The GUI might appear very different in different OSes. That's just Python, I can't do anything about it.
+I have tested the code on Python 3.8.7 on both the OS (Windows 1903 build and Ubuntu 20.04.01 LTS), if there are any issues, please raise an Issue on Github. The GUI might appear very different in different OSes. That's just Python, I can't do anything about it. PySimpleGUI restricts me in dynamically setting the positions, depending on the screen resolution. I can only guarantee proper working on a 1920x1080 screen. On smaller screens, you really need to reduce the ```GUI_FONTSIZE``` variable in ```constants.py```.
 
 --------------------
 
@@ -59,4 +60,4 @@ This simulator supports LW/SW, ADD/SUB from RISC-V RV32I, and MUL/DIV from RISC-
 
 The graphics library that I am using is not documented too well and is a bit troublesome to use. As a result, all the tables in the GUI might not fit properly on different screen sizes. It works properly on a 15.6 inch laptop screen, running Ubuntu 20.04.2 LTS. In case it isn't fitting in your screen:
 
-- Open ```constants.py``` and adjust the value of ```GUI_FONTSIZE```. Hopefully that will work. I am trying to figure out a fix to this bug
+- Open ```constants.py``` and adjust the value of ```GUI_FONTSIZE``` until it works for you.
