@@ -1,25 +1,40 @@
+'''
+MIT Licensed by Shubhayu Das, copyright 2021
+
+Developed for Processor Architecture course assignment 1 - Tomasulo Out-Of-Order Machine
+
+This file contains the data structure used to represent the reservation stations(RS) and their entries
+
+The RSes are used to keep track of the instructions and their source operands until
+they start executing. Once they start executing, they are removed from the corresponding RS.
+'''
 from constants import DEBUG
 from instruction import Instruction
 
 
 class ReservationStationEntry:
-    def __init__(self, instr, ARFTable, ROB, busy=True):
+    def __init__(self, instr, ARFTable, busy=True):
         self._instruction = instr
         self._busy = busy
         self._dest = instr.rd
         self._rob_updated = False
         self._value = None
 
-        self._src_val1, self._src_tag1 = self.__getSrcValTag(ARFTable.getRegister(instr.rs1), ROB)
-        self._src_val2, self._src_tag2 = self.__getSrcValTag(ARFTable.getRegister(instr.rs2), ROB)       
+        # Check if the value is available, else get the tag
+        self._src_val1, self._src_tag1 = self.__getSrcValTag(ARFTable.get_register(instr.rs1))
+        self._src_val2, self._src_tag2 = self.__getSrcValTag(ARFTable.get_register(instr.rs2))       
 
-    def __getSrcValTag(self, source, ROB):
-        if source.isBusy():
-            return "-", source.getLink()
+    # Function to check if the ARF entry is valid, and get the value/tag accordingly
+    def __getSrcValTag(self, source):
+        if source.is_busy():
+            return "-", source.get_link()
         else:
-            return source.getValue(), "-"
+            return source.get_value(), "-"
 
-    def isExecuteable(self):
+    # Function to check if the current instruction is ready to start executing
+    # This is done by checking both the operands are available and not waiting for
+    # their value from the ROB tag
+    def is_executeable(self):
         if self._rob_updated:
             self._rob_updated = False
             return False
@@ -30,6 +45,7 @@ class ReservationStationEntry:
             
             return condition
 
+    # Private function to get the calculated value of the instructions
     def __exec(self):
         command = self._instruction.disassemble()["command"]
         lookup = {
@@ -41,16 +57,16 @@ class ReservationStationEntry:
 
         return lookup[command](self._src_val1, self._src_val2)
 
-    def getResult(self):
+    # Function to return the resultant value of the instruction
+    def get_result(self):
         return self._value
 
-    def getInstruction(self):
+    # Function to return the Instruction associated with this entry
+    def get_inst(self):
         return self._instruction
 
-    def isBusy(self):
-        return self._busy
-
-    def getDestination(self):
+    # Function to get the destination of this entry
+    def get_destination(self):
         return self._dest
 
     def __str__(self):
@@ -65,6 +81,7 @@ class ReservationStationEntry:
                 """
 
 
+# Data structure to represent the RSes 
 class ReservationStation:
     def __init__(self, inst_type, size):
         self._type = inst_type
@@ -73,7 +90,9 @@ class ReservationStation:
         self._buffer = [None for _ in range(size)]
         self._index = 0
 
-    def __updateFreeIndex(self, update=False):
+    # Function to find the next free index to make an entry.
+    # Could have simply ripped of a circular buffer, but meh
+    def __update_free_index(self, update=False):
         counter = 0
 
         if update and not self._is_full:
@@ -92,14 +111,16 @@ class ReservationStation:
         else:
             self._is_full = False
 
-    def addEntry(self, instruction, ARFTable, ROB):
+    # Function to add an entry into the RS
+    # The ARF is needed to get the actual source Registers
+    def add_entry(self, instruction, ARFTable):
         if self._is_full:
             if DEBUG:
                 print("Reservation station is full")
             return False
 
         if isinstance(instruction, Instruction):
-            entry = ReservationStationEntry(instruction, ARFTable, ROB)
+            entry = ReservationStationEntry(instruction, ARFTable)
         
         else:
             return False
@@ -108,23 +129,25 @@ class ReservationStation:
         if DEBUG:
             print(f"Added at RS{self._index + 1}")
 
-        self.__updateFreeIndex()
+        self.__update_free_index()
         return True
 
+    # Function to update the values of the RS entries on a CDB broadcast
     def updateEntries(self, arf, robEntry):
         for entry in self._buffer:
             if entry:
-                if entry._src_tag1 == robEntry.getName():
-                    entry._src_val1 = robEntry.getValue()
+                if entry._src_tag1 == robEntry.get_name():
+                    entry._src_val1 = robEntry.get_value()
                     entry._src_tag1 = "-"
                     entry._rob_updated = True
 
-                if entry._src_tag2 == robEntry.getName():
-                    entry._src_val2 = robEntry.getValue()
+                if entry._src_tag2 == robEntry.get_name():
+                    entry._src_val2 = robEntry.get_value()
                     entry._src_tag2 = "-"
                     entry._rob_updated = True
 
-    def removeEntry(self, entry):
+    # Function to remove an entry from the RS when it starts executing
+    def remove_entry(self, entry):
         if isinstance(entry, Instruction):
             for e in self._buffer:
                 if e:
@@ -138,7 +161,7 @@ class ReservationStation:
         if entry in self._buffer:
             location = self._buffer.index(entry)
             self._buffer[location] = None
-            self.__updateFreeIndex(update=True)
+            self.__update_free_index(update=True)
 
             if DEBUG:
                 print(f"Removed from RS{location + 1}")
@@ -147,19 +170,22 @@ class ReservationStation:
         else:
             return False
 
-    def isBusy(self):
+    # Function to tell whether the RS is full and can't accept more dispatches
+    def is_busy(self):
         return self._is_full
 
-    def getEntry(self, instr):
+    # Function to get a particular entry, given the associated Instruction(using PC)
+    def get_entry(self, instr):
         if isinstance(instr, Instruction):
             for entry in self._entries:
-                if entry.getInstruction().PC == instr.PC:
+                if entry.get_inst().PC == instr.PC:
                     return entry
         else:
             return None
 
-    def getEntries(self):
-        return self._buffer
+    # Function to get all the valid entries, mainly for displaying purposes
+    def get_entries(self):
+        return list(filter(None, self._buffer))
 
     def __str__(self):
         return f"""Reservation Station for {self._type}.

@@ -1,5 +1,11 @@
 '''
-The following instructions are (going to be) supported by this program
+MIT Licensed by Shubhayu Das, copyright 2021
+
+Developed for Processor Architecture course assignment 1 - Tomasulo Out-Of-Order Machine
+
+This file contains a class data structure that represents every instruction
+
+The following instructions are supported by this program
              31:25   24:20  19:15   14:12  11:7   6:0
 instruction - funct7 - rs2 - rs1 - funct3 - rd - opcode
     ADD      0000000 - src2 - src1 - 000 - dest - 0110011
@@ -17,15 +23,16 @@ References:
 
 2.  MUL/DIV come from 
     RV32M: https://github.com/riscv/riscv-opcodes/blob/master/opcodes-rv32m
+
+Note: RISC-V and its repos have their own license and are NOT are a part of the MIT license that my program files
+are licensed under
 '''
 
 from register_bank import Register
 
 
+# Instruction data structure that stores all the necessary information that an instruction carries
 class Instruction:
-    I_TYPE = "J"
-    M_TYPE = "M"
-
     def __init__(self, PC=-1, funct7="0000000", rs2="00000", rs1="00000",
                  rd="00000", funct3="000", opcode="0000000", hasOffset=False):
         
@@ -36,6 +43,7 @@ class Instruction:
         self.offset = None
         self.funct7 = None
 
+        # To differentiate between instructions with offset(LW) and other instructions(ADD, SUB etc)
         if hasOffset:
             self.offset = funct7 + rs2
         else:
@@ -47,14 +55,9 @@ class Instruction:
         self.rd = rd
         self.funct3 = funct3
         self.opcode = opcode
-        self.type = self.decodeType(funct7, opcode)
 
-    def decodeType(self, funct7, opcode):
-        if funct7 == "0000001" and opcode != "1010011":
-            return Instruction.M_TYPE
-        else:
-            return Instruction.I_TYPE
-
+    # Function to convert binary to English for decision making and displaying
+    # Returns a struct which contains all the individual segments of the instruction, depending on their type
     def disassemble(self):
         command = ""
 
@@ -96,7 +99,8 @@ class Instruction:
                 "rs2": self.rs2
             }
 
-    def strDisassembled(self):
+    # Function to convert the binary to a English string for displaying purposes only
+    def str_disassemble(self):
         instruction = self.disassemble()
         rd = instruction["rd"]
     
@@ -107,6 +111,8 @@ class Instruction:
         else:
             return f"{instruction['command']} {rd}, {rs1}, {instruction['rs2']}"
 
+    # Globally accessible class method to create an Instruction from a binary input
+    # This function is capable of removing spaces, which can be added to improve readability
     @classmethod
     def segment(self, instruction, PC=-1):
         instruction = instruction.replace(" ", "")
@@ -139,6 +145,6 @@ class Instruction:
 
     def __str__(self):
         if self.hasOffset:
-            return f"<[PC={self.PC}] {self.type}-Instruction offset:{self.offset} rs1:{self.rs1} funct3:{self.funct3} rd:{self.rd} opcode:{self.opcode}>"
+            return f"<[PC={self.PC}] offset:{self.offset} rs1:{self.rs1} funct3:{self.funct3} rd:{self.rd} opcode:{self.opcode}>"
         else:
-            return f"<[PC={self.PC}] {self.type}-Instruction funct7:{self.funct7} rs2:{self.rs2} rs1:{self.rs1} funct3:{self.funct3} rd:{self.rd} opcode:{self.opcode}>"
+            return f"<[PC={self.PC}] funct7:{self.funct7} rs2:{self.rs2} rs1:{self.rs1} funct3:{self.funct3} rd:{self.rd} opcode:{self.opcode}>"

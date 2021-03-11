@@ -1,9 +1,18 @@
+'''
+MIT Licensed by Shubhayu Das, copyright 2021
+
+Developed for Processor Architecture course assignment 1 - Tomasulo Out-Of-Order Machine
+
+This is the script for a basic RISC-V assembler. It only support LW, ADD, SUB, MUL and DIV instructions so far.
+All are integer instructions only, although, the program by itself supports floating point numbers(cheating)
+'''
 import re
 import sys
-from constants import DEBUG
 
 
-def splitOperands(program):
+# Function to split the instruction string into opcode and registers(and offset if needed)
+# This function is capable of handling comments too
+def split_operands(program):
     program = [inst.split(";")[0] for inst in program]
     program = list(filter(None, program))
     program = [re.split(",|\ ", inst.strip()) for inst in program]
@@ -11,6 +20,8 @@ def splitOperands(program):
 
     return program
 
+
+# Zero pad the binary numbers appropriately
 def pad(number, n):
     number = number[2:]
     while len(number) < n:
@@ -18,6 +29,9 @@ def pad(number, n):
 
     return number
 
+
+# The main assembler function, which contains the mapping between the instructions and their
+# opcodes, function-7 and function-3 fields
 def assembler(filename):
     outFile = ".".join([filename.split("/")[-1].split(".")[0], "elf"])
     program = []
@@ -50,10 +64,14 @@ def assembler(filename):
         },
     }
 
+    # Read the source code
     with open(filename) as sourceCode:
         program = (sourceCode.readlines())
 
-    program = splitOperands(program)
+    # Split each instruction into requisite pieces
+    program = split_operands(program)
+
+    # Decode the split chunks into binary
     for i, inst in enumerate(program):
         if "LW" in inst:
             offset, rs1 = inst[2].split('(')
@@ -69,13 +87,8 @@ def assembler(filename):
             rs2 = pad(bin(int(inst[3])), 5)
             
             assembly.append(mapping[inst[0]]["funct7"] + rs2 + rs1 + mapping[inst[0]]["funct3"] + rd + mapping[inst[0]]["opcode"])
-            
 
-    if DEBUG:
-        from instruction import Instruction
-        for inst in assembly:
-            print(f"{Instruction.segment(inst).disassemble()} - {inst}")
-
+    # Write the assembled binary into an output elf file
     with open(f"build/{outFile}", 'w') as destFile:
         for idx, inst in enumerate(assembly):
             destFile.write(inst)
@@ -83,6 +96,7 @@ def assembler(filename):
                 destFile.write("\n")
 
 
+# Check if a program was fed it, otherwise use a default
 if len(sys.argv) < 2:
     assembler("src/riscv_program.asm")
 else:
