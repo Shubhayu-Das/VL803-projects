@@ -21,13 +21,12 @@ else:
 instructions = []
 cycle = 0
 
-# 12, 16, 45, 5, 3, 4, 1, 2, 2, 3
-ARFTable = ARF(size=10, init=[i for i in range(1, 11)])
+ARFTable = ARF(size=10, init=[12, 16, 45, 5, 3, 4, 1, 2, 2, 3])
 
 ADD_RS = ReservationStation(constants.ADD_SUB, size=3)
 MUL_RS = ReservationStation(constants.MUL_DIV, size=2)
 
-LS_Buffer = LoadStoreBuffer(size=3, memory="data_memory.dat")
+LS_Buffer = LoadStoreBuffer(size=3, memoryFile="data_memory.dat")
 ROB = ROBTable(size=8)
 
 # Load in the program
@@ -47,10 +46,9 @@ for instruction in instructions:
 # Function to try and dispatch next instruction if corresponding RS is free
 # Updates all relevant source mappings too
 def tryDispatch():
-    for i in range(0, len(instructions)):
-        entry = instructionTable.getEntry(i)
+    for entry in instructionTable.getEntries():
 
-        if entry.getBusyState() == constants.RunState.NOT_STARTED:
+        if entry.getState() == constants.RunState.NOT_STARTED:
             instruction = entry.getInstruction()
             instruction_type = instruction.disassemble()["command"]
 
@@ -58,27 +56,20 @@ def tryDispatch():
 
             if instruction_type in ["ADD", "SUB"]:
                 RS = ADD_RS
-
             elif instruction_type in ["MUL", "DIV"]:
                 RS = MUL_RS
-
             elif instruction_type in ["LW", "SW"]:
                 RS = LS_Buffer
 
             if RS:
-                if RS.isBusy():
-                    break
-                else:
+                if not RS.isBusy():
                     RS.addEntry(instruction, ARFTable, ROB)
 
                     destination = ARFTable.getRegister(entry._instruction.rd)
                     destination.setLink(ROB.addEntry(entry._instruction, destination))
 
-                    if RS == LS_Buffer:
-                        destination.setValue("-")
-
                     entry.RS_Start(cycle)
-                    break
+                break
 
 # Function to simulate the execution of the process
 def tryExecute():
@@ -87,35 +78,32 @@ def tryExecute():
             if entry:
                 it_entry = instructionTable.getEntry(entry._instruction)
 
-                if it_entry.getBusyState() == constants.RunState.RS and entry.isExecuteable():                    
+                if it_entry.getState() == constants.RunState.RS and entry.isExecuteable():                    
                     it_entry.EX_Start(cycle)
+                    it_entry.updateResult(entry.getResult())
+                    RS.removeEntry(entry.getInstruction())
                     break
 
 def proceedExecuting():
-    for RS in [LS_Buffer, ADD_RS, MUL_RS]:
-        for entry in RS.getEntries():
-            if entry:                
-                it_entry = instructionTable.getEntry(entry._instruction)
-                if it_entry.getBusyState() == constants.RunState.EX_START:
-                    it_entry.EX_Tick(cycle)
+    for it_entry in instructionTable.getEntries():
+        if it_entry:                
+            if it_entry.getState() == constants.RunState.EX_START:
+                it_entry.EX_Tick(cycle)
 
 def tryCDBBroadcast():
-    for RS in [LS_Buffer, ADD_RS, MUL_RS]:
-        for entry in RS.getEntries():
-            if entry:                
-                it_entry = instructionTable.getEntry(entry.getInstruction())
-                if it_entry.getBusyState() == constants.RunState.EX_END:
-                    value = entry.getResult()
+    for it_entry in instructionTable.getEntries():
+        if it_entry:                
+            if it_entry.getState() == constants.RunState.EX_END:
+                it_entry.CDB_Write(cycle)
+                
+                value = it_entry.getResult()
+                robEntry = ROB.updateValue(it_entry.getInstruction(), value)
 
-                    if value:
-                        it_entry.CDB_Write(cycle)
-                        
-                        robEntry = ROB.updateValue(entry.getInstruction(), value)
-                        if robEntry:
-                            for RS in [ADD_RS, MUL_RS]:
-                                RS.updateEntries(robEntry, value, ARFTable)
+                if robEntry:
+                    for RS in [ADD_RS, MUL_RS]:
+                        RS.updateEntries(ARFTable, robEntry)
 
-                        return
+                return
 
 def tryCommit(): 
     robEntry = ROB.getHead()
@@ -128,21 +116,14 @@ def tryCommit():
             instType = inst.disassemble()["command"]
 
             instructionTable.getEntry(inst).Commit(cycle)
-            
-            for RS in [ADD_RS, MUL_RS]:
-                RS.updateDependencies(ARFTable, ROB)
-
-            if instType in ["ADD", "SUB"]:
-                ADD_RS.removeEntry(inst)
-            elif instType in ["MUL", "DIV"]:
-                MUL_RS.removeEntry(inst)
-            elif instType in ["LW", "SW"]:
-                LS_Buffer.removeEntry(inst)
 
 
 def logic_loop():
     global cycle
     cycle += 1
+    
+    if constants.DEBUG:
+        print(cycle)
     
     tryCommit()
     tryCDBBroadcast()
@@ -192,7 +173,7 @@ while True:
                 LS_Buffer=historyBuffer[index][4]
             )
         
-    if RUN or (not RUN and event == "next_button"):
+    if RUN or (not RUN and event == "next_button" and backwards == 1):
         backwards = 1
         logic_loop()
         

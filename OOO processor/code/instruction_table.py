@@ -13,6 +13,7 @@ class InstructionTableEntry:
         self._commit = ""
         self._counter = 0
         self._max_ticks = NumCycles[instruction.disassemble()["command"]] - 1
+        self._value = None
 
     def RS_Start(self, cycle):
         self._state = RunState.RS
@@ -38,11 +39,17 @@ class InstructionTableEntry:
         self._state = RunState.COMMIT
         self._commit = cycle
 
-    def getBusyState(self):
+    def updateResult(self, new_value):
+        self._value = new_value
+    
+    def getState(self):
         return self._state
 
     def getInstruction(self):
         return self._instruction
+
+    def getResult(self):
+        return self._value
 
     def __str__(self):
         return f"{self._instruction.disassemble()}\t\t{self._rs_issue_cycle} {self._exec_start} {self._exec_complete} {self._cdb_write} {self._commit}"
@@ -66,6 +73,9 @@ class InstructionTable:
                     return entry
         else:
             return self._entries[index]
+
+    def getEntries(self):
+        return self._entries
 
     def __str__(self):
         display = "Instruction\t\t\t\t\t\t\tRS Start Exec Start Exec End CDB Write Commit\n"

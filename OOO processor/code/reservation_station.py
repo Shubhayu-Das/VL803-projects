@@ -41,13 +41,6 @@ class ReservationStationEntry:
 
         return lookup[command](self._src_val1, self._src_val2)
 
-    def updateDependencies(self, ARFTable, ROB):
-        if self._src_val1 == "-":
-            self._src_val1, self._src_tag1 = self.__getSrcValTag(ARFTable.getRegister(self._instruction.rs1), ROB)
-        
-        if self._src_val2 == "-":
-            self._src_val2, self._src_tag2 = self.__getSrcValTag(ARFTable.getRegister(self._instruction.rs2), ROB)
-
     def getResult(self):
         return self._value
 
@@ -79,11 +72,9 @@ class ReservationStation:
         self._size = size
         self._buffer = [None for _ in range(size)]
         self._index = 0
-        self._just_freed = False
 
     def __updateFreeIndex(self, update=False):
         counter = 0
-        backup = None
 
         if update and not self._is_full:
             return
@@ -91,18 +82,13 @@ class ReservationStation:
         while(counter < self._size):
             self._index = (self._index + 1) % self._size
             if self._buffer[self._index] is None:
-                if self._index == self._just_freed:
-                    backup == self._index
-                else:
                     break
-            counter += 1
+            else:
+                counter += 1
 
         if counter == self._size:
-            if backup:
-                self._index = backup
-            else:
-                self._is_full = True
-                self._index = -1
+            self._is_full = True
+            self._index = -1
         else:
             self._is_full = False
 
@@ -125,23 +111,18 @@ class ReservationStation:
         self.__updateFreeIndex()
         return True
 
-    def updateEntries(self, robEntry, value, arf):
+    def updateEntries(self, arf, robEntry):
         for entry in self._buffer:
             if entry:
-                if arf.getRegister(entry._instruction.rs1) == robEntry.getDestination():
+                if entry._src_tag1 == robEntry.getName():
                     entry._src_val1 = robEntry.getValue()
                     entry._src_tag1 = "-"
                     entry._rob_updated = True
 
-                if arf.getRegister(entry._instruction.rs2) == robEntry.getDestination():
+                if entry._src_tag2 == robEntry.getName():
                     entry._src_val2 = robEntry.getValue()
                     entry._src_tag2 = "-"
                     entry._rob_updated = True
-
-    def updateDependencies(self, ARFTable, ROB):
-        for entry in self._buffer:
-            if entry:
-                entry.updateDependencies(ARFTable, ROB)
 
     def removeEntry(self, entry):
         if isinstance(entry, Instruction):
@@ -156,7 +137,6 @@ class ReservationStation:
 
         if entry in self._buffer:
             location = self._buffer.index(entry)
-            self._just_freed = location
             self._buffer[location] = None
             self.__updateFreeIndex(update=True)
 
@@ -168,16 +148,20 @@ class ReservationStation:
             return False
 
     def isBusy(self):
-        condition = self._is_full and not (self._index == self._just_freed)
-        self._just_freed = False
+        return self._is_full
 
-        return condition
+    def getEntry(self, instr):
+        if isinstance(instr, Instruction):
+            for entry in self._entries:
+                if entry.getInstruction().PC == instr.PC:
+                    return entry
+        else:
+            return None
 
     def getEntries(self):
         return self._buffer
 
     def __str__(self):
         return f"""Reservation Station for {self._type}.
-                    Station Size: {self._size}
-                    Busy State: {self.getBusyState()}
+                    {self._buffer}
                 """

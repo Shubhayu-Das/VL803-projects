@@ -12,7 +12,7 @@ NumCycles = {
     "SUB": 1,
     "MUL": 10,
     "DIV": 40,
-    "LW": 3
+    "LW": 5
 }
 
 

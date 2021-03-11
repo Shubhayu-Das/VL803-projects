@@ -15,11 +15,9 @@ Roll number: IMT2018523
 Completed mostly, apart from few doubts.
 
 PENDING:
-1. LW/SW path, with added complications
-2. If RS is not free, should a ROB entry still be made? Or should the processor stall?
-3. Check all the timings. Mostly, all are correct
-4. Code cleanup
-5. Additional GUI features
+1. Code cleanup and commenting everything
+2. Additional GUI features
+3. Remove unnecessary code
 
 ------------------------------
 

@@ -283,7 +283,7 @@ class Graphics():
                 data.append(str(entry.isBusy())[0])
                 data.append(entry._dest)
 
-                data.append(f"{entry._offset}+{entry._src_reg.getName()}")
+                data.append(f"{4*entry._offset}+{entry._src_reg.getName()}")
                 data.append(entry._src_reg.getName())
 
             else:

@@ -1,14 +1,16 @@
+import os
 from constants import DEBUG
 from instruction import Instruction
 
 
 class LoadStoreBufferEntry:
-    def __init__(self, instr, ARFTable, ROB):
+    def __init__(self, instr, ARFTable, ROB, memory):
         self._instruction = instr
-        self._busy = False
+        self._busy = True
         self._dest = instr.rd
-        self._offset = 4*int(instr.offset, 2)
+        self._offset = int(instr.offset, 2)
         self._src_reg = ARFTable.getRegister(instr.rs1)
+        self._memory = memory
 
     def isExecuteable(self):
         return not self._src_reg.isBusy()
@@ -20,20 +22,28 @@ class LoadStoreBufferEntry:
         return self._instruction
 
     def getResult(self):
-        return 1
+        index = self._src_reg.getValue() + self._offset
+        if index < len(self._memory):
+            self._busy = False
+            return int(self._memory[index].replace(" ", "").strip(), 2)
+        else:
+            return False
 
     def __str__(self):
         return f"<LW/SW buffer entry: {self._instruction.dissamble()}, {self._busy}>"
 
 
 class LoadStoreBuffer:
-    def __init__(self, size, memory):
+    def __init__(self, size, memoryFile):
         self._size = size
         self._buffer = [None for _ in range(size)]
         self._is_full = False
         self._index = 0
-        self._memory = memory
         self._just_freed = False
+
+        if os.path.exists(memoryFile):
+            with open(memoryFile, 'r') as dataMemory:
+                self._memory = dataMemory.readlines()
 
     def __updateFreeIndex(self, update=False):
         counter = 0
@@ -67,7 +77,7 @@ class LoadStoreBuffer:
             return False
 
         if isinstance(instr, Instruction):
-            entry = LoadStoreBufferEntry(instr, ARFTable, ROB)
+            entry = LoadStoreBufferEntry(instr, ARFTable, ROB, self._memory)
 
         self._buffer[self._index] = entry
         if DEBUG:
