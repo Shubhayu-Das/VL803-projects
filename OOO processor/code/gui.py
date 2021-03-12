@@ -10,13 +10,14 @@ except main.py, which calls appropriate functions in the main event loop
 '''
 
 import PySimpleGUI as sg
-from constants import LIMIT, NumCycles, GUI_FONTSIZE
+from constants import LIMIT, NumCycles, VERSION
 
 
 # Class to encapsulate the entire behaviour of the GUI interface
 # The entire state of the GUI is stored in '_machine_state'
 class Graphics():
     def __init__(self, machineState=None):
+        self._font_size = 16
         if machineState:
             self._machine_state = machineState
         else:
@@ -59,8 +60,8 @@ class Graphics():
             values=row_contents,
             headings=headings,
             hide_vertical_scroll=hide_vertical_scroll,
-            def_col_width=int(GUI_FONTSIZE/2),
-            row_height=2*(GUI_FONTSIZE+1),
+            def_col_width=int(self._font_size/2),
+            row_height=2*(self._font_size+1),
             justification="center",
             num_rows=n_rows,
             row_colors=row_colors,
@@ -77,22 +78,28 @@ class Graphics():
 
     # Function to generate the overall layout, with some dummy initial content
     def generateLayout(self):
+        width, height = sg.Window.get_screen_size()
+        aspect_ratio = width/height
+
+        if aspect_ratio < 16/9:
+            self._font_size = 14
+
         mainHeading = [sg.Text(
             "Tomasulo out-of-order simulation",
             justification="center",
             pad=((20, 20), (2, 2)),
-            font="Times 24",
+            font=f"Times {int(self._font_size*1.5)}",
             text_color="black"
         )]
 
-        programCounter = [sg.Frame(
-            title="Program Counter",
+        cpuClockCycle = [sg.Frame(
+            title="CPU Clock Cycle",
             layout=[[sg.Text(
                     text=self._machine_state["metadata"]["cycle"],
                     key="cycle_number",
-                    size=(3,1),
+                    size=(4,1),
                     text_color="black",
-                    font=f"Times {GUI_FONTSIZE+2}",
+                    font=f"Times {self._font_size+2}",
                 )]],
             title_location=sg.TITLE_LOCATION_TOP,
             element_justification = "center",
@@ -119,6 +126,17 @@ class Graphics():
         robHeading = [" Name ", "  Instruction  ", " Dest. ", "  Value  "]
         arfHeading = ["Reg", "   Value   ", "Mapping", "Busy"]
         cycleHeading = ["Instr.", "No. of cycles"]
+
+        # Generate the menu
+        menu = [
+            sg.Menu(
+                menu_definition=[
+                    ['$Load', ['&Load new program', '&Load new data memory']],
+                    ['&Help', ['&Instructions', '&About']]
+                ],
+                key="menu"
+            )
+        ]
 
         # Generate each of the tables
         instructionTable = self.__generateTable(
@@ -177,40 +195,68 @@ class Graphics():
             key="previous_button"
         )]
 
+        nextEventButton = [sg.Button(
+            button_text="Next Event",
+            key="next_event_button"
+        )]
+
         # Combine all the buttons in to a single logical control panel
         controlPanel = [sg.Frame(
             title="Control Panel",
-            layout=[pauseButton, nextButton + prevButton],
-            title_location=sg.TITLE_LOCATION_TOP
+            layout=[pauseButton, nextButton + prevButton, nextEventButton],
+            title_location=sg.TITLE_LOCATION_TOP,
+            element_justification="center",
+            pad=(2*self._font_size, 2*self._font_size)
         )]
 
-        # Arrange the components into 3 different blocks
+        # Arrange the components into 3 different blocks, depending on screen resolution
+        allowScroll = False
         col1 = [sg.Column(
-            [programCounter, CycleInfoTable, controlPanel],
+            [cpuClockCycle, CycleInfoTable, controlPanel],
             element_justification="center",
             key="layout_col1"
         )]
 
-        col2 = [sg.Column(
-            [instructionTable, [sg.Column([loadStoreBufferTable, reservationStationTable])]],
-            element_justification="center",
-            expand_x=True,
-            key="layout_col2"
-        )]
+        if aspect_ratio >= 16/9:
+            col2 = [sg.Column(
+                [instructionTable, loadStoreBufferTable, reservationStationTable],
+                element_justification="center",
+                expand_x=True,
+                key="layout_col2"
+            )]
 
-        col3 = [sg.Column(
-            [ARFTable, ROBTable],
-            element_justification="center",
-            expand_x=True,
-            key="layout_col3"
-        )]
+            col3 = [sg.Column(
+                [ARFTable, ROBTable],
+                element_justification="center",
+                expand_x=True,
+                key="layout_col3"
+            )]
+        else:
+            allowScroll = True
+            col2 = [sg.Column(
+                [instructionTable, loadStoreBufferTable, reservationStationTable, ARFTable + ROBTable],
+                element_justification="center",
+                expand_x=True,
+                key="layout_col2"
+            )]
+            col3 = []
         
         # Generate the final layout, by combining the individual columns
-        displayLayout = [
-            mainHeading,
-            [sg.HorizontalSeparator(color="black")],
-            col1 + col2 + col3
-        ]
+        displayLayout = [[
+            sg.Column(
+                layout=[
+                    menu,
+                    mainHeading,
+                    [sg.HorizontalSeparator(color="black")],
+                    col1 + col2 + col3
+                ],
+                element_justification="center",
+                scrollable=allowScroll,
+                vertical_scroll_only=allowScroll,
+                size=sg.Window.get_screen_size(),
+                key="main_scroll_col"
+            )
+        ]]
 
         return displayLayout
 
@@ -221,10 +267,10 @@ class Graphics():
         return sg.Window(
             'Tomasulo OOO processor sim',
             self.generateLayout(),
-            font=f"Times {GUI_FONTSIZE}",
+            font=f"Times {self._font_size}",
             size=sg.Window.get_screen_size(),
-            element_padding=(int(GUI_FONTSIZE/2), int(GUI_FONTSIZE/2)),
-            margins=(GUI_FONTSIZE, GUI_FONTSIZE),
+            element_padding=(int(self._font_size/2), int(self._font_size/2)),
+            margins=(self._font_size, self._font_size),
             text_justification="center",
             resizable=True,
             element_justification="center",
@@ -310,7 +356,7 @@ class Graphics():
                     data.append(str(entry._src_val2))
                 else:
                     data = [name] + [""] * 7
-                    data[2] = False
+                    data[2] = "F"
 
                 insts.append(data)
                 colors.append("")
@@ -367,6 +413,60 @@ class Graphics():
             self.__convertLSBuffer(LS_Buffer)
             window['ls_buffer_table'].update(self._machine_state["Load Store Buffer"]["contents"])
         
+    # Function to call up the About popup:
+    def generateAboutPopup(self):
+        contents = f'''
+        Developer: Shubhayu Das
+        Program: Tomasulo Machine simulator
+        Version: {VERSION}
+        Date: 12th March, 2021
+        Project repo: https://github.com/Shubhayu-Das/VL803-projects/tree/main/OOO%20processor
+        '''
+        sg.popup_ok(
+            contents,
+            title="About",
+            non_blocking=True,
+            grab_anywhere=True,
+            font=f"Times {self._font_size}"
+        )
+
+    # Function to call up the Instructions of Use popup
+    def generateInstructionPopup(self):
+        content = f'''
+        1. This program is a cycle-by-cycle simulation of the Tomasulo Out Of Order Machine, used in the IBM 360/91
+
+        2. Each of the main components is assigned its own display table. If the tables are too long, they will have scrollbars
+        
+        3. The GUI scales and adjusts according to your screen resolution, Best results are obtained at 1920x1080 and 1440x900.
+        
+        4. The GUI is interactive, the behaviour can be controlled using the buttons in the Control Panel on the left
+        
+        5. To single step through the clock cycles of the simulation, use the previous and next buttons. It is recommended that you\
+        pause the simulation before this.
+        
+        6. To start the simulation, click on the "Start" button. The button will change to a pause button after this.
+        
+        7. To pause the simulation, click on the "Pause" button; after this the button will change to a continue button. Clicking it\
+        will continue executing the simulation.
+        
+        8. Some executions can take a while, with nothing noticeable happening. To skip to the next cycle, where one of the components\
+        have a change, click on the "Next Event" button. This button can be used irrespective of whether the simulation is running\
+        or is paused.
+        
+        9. There are some known bugs in the GUI. Refer to the README for more details
+        '''
+
+        sg.popup_scrolled(
+            content,
+            title="Instructions of use",
+            non_blocking=True,
+            grab_anywhere=True,
+            background_color = 'white',
+            text_color="black",
+            font=f"Times {self._font_size}",
+            size=(100, 10)
+        )
+
 
 # Local testing code
 if __name__ == "__main__":

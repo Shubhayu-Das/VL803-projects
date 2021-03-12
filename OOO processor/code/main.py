@@ -40,6 +40,7 @@ else:
 # Global variables that are needed throughout here
 instructions = []
 PC = 0
+next_event = False
 
 # Creating objects of the functional components
 ARFTable = ARF(size=10, init=[12, 16, 45, 5, 3, 4, 1, 2, 2, 3])
@@ -60,7 +61,7 @@ with open(program_src) as binary:
     for local_PC, inst in enumerate(program):
         instructions.append(Instruction.segment(inst, PC=local_PC+1))
 
-instructionTable = InstructionTable(size=len(instructions))
+instructionTable = InstructionTable(size=min(10, len(instructions)))
 
 for instruction in instructions:
     instructionTable.add_entry(instruction)
@@ -74,6 +75,7 @@ for instruction in instructions:
 # Function to try and dispatch next instruction if corresponding RS is free
 # Updates all relevant source mappings too
 def tryDispatch():
+    global next_event
     for it_entry in instructionTable.get_entries():
         if it_entry.get_state() == constants.RunState.NOT_STARTED:
             instruction = it_entry.get_inst()
@@ -95,6 +97,7 @@ def tryDispatch():
                         destination.set_link(ROB.add_entry(it_entry._instruction, destination))
 
                         it_entry.rs_issue(PC)
+                        next_event = True
 
                     break
 
@@ -102,6 +105,7 @@ def tryDispatch():
 # Function to simulate the execution of the process. This includes dispatching
 # instructions and handling their execution steps
 def tryExecute():
+    global next_event
     for RS in [LS_Buffer, ADD_RS, MUL_RS]:
         for rs_entry in RS.get_entries():
             if rs_entry:
@@ -111,6 +115,8 @@ def tryExecute():
                     it_entry.ex_start(PC)
                     it_entry.update_result(rs_entry.get_result())
                     RS.remove_entry(rs_entry.get_inst())
+
+                    next_event = True
                     break
 
     for it_entry in instructionTable.get_entries():
@@ -120,6 +126,7 @@ def tryExecute():
 
 # Function to perform the CDB broadcast, when an instruction has completed executing
 def tryCDBBroadcast():
+    global next_event
     for it_entry in instructionTable.get_entries():
         if it_entry.get_state() == constants.RunState.EX_END:
             it_entry.cdb_write(PC)
@@ -131,12 +138,14 @@ def tryCDBBroadcast():
                 for RS in [ADD_RS, MUL_RS]:
                     RS.updateEntries(ARFTable, robEntry)
 
+            next_event = True
             return
 
 
 # Function to commit the result of an instruction, if it has completed CDB broadcast
 # and is at the tail of the ROB
 def tryCommit():
+    global next_event
     for it_entry in instructionTable.get_entries():
         if it_entry.get_state() == constants.RunState.COMMIT:
             continue
@@ -146,12 +155,13 @@ def tryCommit():
                 it_entry.commit(PC)
                 ARFTable.update_register(robEntry)
 
+            next_event = True
         break
 
 
 # Function to call all the above function, while updating the program counter
 def logic_loop():
-    global PC
+    global PC, ADD_RS, MUL_RS, instructionTable, ROB, ARFTable, LS_Buffer, next_event
     PC += 1
     
     if constants.DEBUG:
@@ -163,6 +173,19 @@ def logic_loop():
     tryCDBBroadcast()
     tryExecute()
     tryDispatch()
+
+    # Update the changes into the history buffer
+    historyBuffer.append([
+        copy.deepcopy(instructionTable),
+        copy.deepcopy(ROB),
+        {
+            constants.ADD_SUB: copy.deepcopy(ADD_RS),
+            constants.MUL_DIV: copy.deepcopy(MUL_RS)
+        },
+        copy.deepcopy(ARFTable),
+        copy.deepcopy(LS_Buffer),
+        copy.deepcopy(next_event)
+    ])
     
 
 #-------------------------------------------------------------------------------#
@@ -172,17 +195,31 @@ def logic_loop():
 RUN = False
 backwards = 0
 historyBuffer = []
+frameDuration = constants.CYCLE_DURATION
 
 GUI = Graphics()
 window = GUI.generateWindow()
 
 # Main event loop
 while True:
-    event, values = window.read(timeout=constants.CYCLE_DURATION)
+    event, values = window.read(timeout=frameDuration)
     done = False
 
     if event == sg.WIN_CLOSED:
         break
+
+    elif event == "About":
+        RUN = False
+        window["pause_button"].update(text="Continue")
+
+        GUI.generateAboutPopup()
+
+    elif event == "Instructions":
+        RUN = False
+        window["pause_button"].update(text="Continue")
+
+        GUI.generateInstructionPopup()
+
     elif event == "pause_button":
         if RUN:
             window["pause_button"].update(text="Continue")
@@ -212,11 +249,23 @@ while True:
             )
 
             done = True
-        
-    if RUN or (not RUN and not done and event == "next_button"):
+
+    elif event == "next_event_button":
+        if RUN:
+            while not next_event:
+                logic_loop()
+            next_event = False
+      
+    if RUN or (not RUN and not done and event in ["next_button", "next_event_button"]):
         # Reset the history/step controls
         if backwards > 1:
             index = PC - backwards
+
+            if event == "next_event_button":
+                while not historyBuffer[index][5]:
+                    backwards -= 1
+                    index = PC - backwards
+
             GUI.updateContents(
                 window,
                 index + 1,
@@ -230,20 +279,13 @@ while True:
             backwards -= 1
 
         else:
+            if event == "next_event_button":
+                while not next_event:
+                    logic_loop()
+                next_event = False
+            
             # Run the processor for one clock cycle
             logic_loop()
-
-            # Update and maintain the history buffer
-            historyBuffer.append([
-                copy.deepcopy(instructionTable),
-                copy.deepcopy(ROB),
-                {
-                    constants.ADD_SUB: copy.deepcopy(ADD_RS),
-                    constants.MUL_DIV: copy.deepcopy(MUL_RS)
-                },
-                copy.deepcopy(ARFTable),
-                copy.deepcopy(LS_Buffer)
-            ])
             
             # Render the contents to the GUI
             GUI.updateContents(

@@ -9,12 +9,10 @@ This file contains some important constants that are used to modify the behaviou
 # Some variables that affect the output of the program
 # Set DEBUG to True to enable text output to the terminal
 DEBUG          = False
-
-# GUI_FONTSIZE sets the size of the text in the GUI window. This is subject to the OS settings too
-GUI_FONTSIZE   = 16
+VERSION        = "1.0.0"
 
 # CYCLE_DURATION sets the time period of each clock cycle.
-# Increase this value(in milliseconds) to make each cycle last longer in the GUI
+# Increase this value(in milliseconds) to make each cycle last longer in the simulation
 CYCLE_DURATION = 1000    # in ms
 
 # The number of cycles taken by each supported instruction to execute
