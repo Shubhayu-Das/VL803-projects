@@ -9,7 +9,7 @@ This file contains some important constants that are used to modify the behaviou
 # Some variables that affect the output of the program
 # Set DEBUG to True to enable text output to the terminal
 DEBUG          = False
-VERSION        = "1.0.0"
+VERSION        = "1.1.0"
 
 # CYCLE_DURATION sets the time period of each clock cycle.
 # Increase this value(in milliseconds) to make each cycle last longer in the simulation

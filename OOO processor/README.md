@@ -9,16 +9,19 @@ Name: Shubhayu Das
 
 Roll number: IMT2018523
 
+Version: 1.1.0
+
 -----------------------------
 
 ### Progress
-Completed mostly, apart from few doubts.
+Completed the base model of the Tomasulo machine, as implemented in the IBm 360/91. The difference is that the Tomasulo machine was originally meant for floating point units only, but I am using it for integers too. The other rub is that I am actually using *integer* instructions from RISC-V ISA, for this sim.
 
-PENDING:
+-----------------------------
+
+### Future improvements
 1. Convert main.py into a Tomasulo class?
 2. Additional GUI features
 3. Document the code base and improve this README
-4. See if anything can be done about the resolution scaling
 
 ------------------------------
 
@@ -37,7 +40,10 @@ On Windows:
 $ pip install pysimplegui
 ```
 
-I have tested the code on Python 3.8.7 on both the OS (Windows 1903 build and Ubuntu 20.04.01 LTS), if there are any issues, please raise an Issue on Github. The GUI might appear very different in different OSes. That's just Python, I can't do anything about it. PySimpleGUI restricts me in dynamically setting the positions, depending on the screen resolution. I can only guarantee proper working on a 1920x1080 screen. On smaller screens, you really need to reduce the ```GUI_FONTSIZE``` variable in ```constants.py```.
+I have tested the code on Python 3.8.7 on both the OS (Windows 1903 build and Ubuntu 20.04.01 LTS), if there are any issues, please raise an Issue on Github. The GUI might appear different in different screens, depending on the aspect ratios. I have tried to make it useable, over looking pretty. For better control over the GUI, I would have to dive too deep(using tk or Qt5), which I can't bother to do now.
+
+**References**:
+1. [PySimpleGUI documentation website](https://pysimplegui.readthedocs.io/en/latest/)
 
 --------------------
 
@@ -56,8 +62,15 @@ This simulator supports LW/SW, ADD/SUB from RISC-V RV32I, and MUL/DIV from RISC-
 
 -----
 
-### Known issues
+### Known Bugs
 
-The graphics library that I am using is not documented too well and is a bit troublesome to use. As a result, all the tables in the GUI might not fit properly on different screen sizes. It works properly on a 15.6 inch laptop screen, running Ubuntu 20.04.2 LTS. In case it isn't fitting in your screen:
+1. The "Prev" button can't go below PC=2. Its a pain to figure out how to implement history in the GUI related code in ```main.py```, so I left it as is. After all, how much even happens in the first two cycles.
 
-- Open ```constants.py``` and adjust the value of ```GUI_FONTSIZE``` until it works for you.
+2. DEBUG=True doesn't print a whole lot of intelligible data. This is sorely because I didn't have the time and patience to complete it yet. Enjoy the GUI though.
+
+3. While going to the next "event" step, if the next happens to be the last step of the entire execution, the program WILL hang. My history traversal mechanism are pretty buggy right now. If the program hangs, please go to the terminal(from where the python program was started) and press ```Ctrl+C```.
+--------------
+
+### License
+
+I have MIT licensed this project **except for the RISC-V references**. RISC-V opcodes repo [riscv/riscv-opcodes](https://github.com/riscv/riscv-opcodes) is licensed by the University of California.

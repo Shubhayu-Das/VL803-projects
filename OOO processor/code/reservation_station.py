@@ -55,7 +55,11 @@ class ReservationStationEntry:
             "DIV": lambda x, y: round(x/y, 2),
         }
 
-        return lookup[command](self._src_val1, self._src_val2)
+        try:
+            return lookup[command](self._src_val1, self._src_val2)
+        except ZeroDivisionError:
+            print("Divisor is 0!: ", self._src_val1, self._src_val2)
+            return 0
 
     # Function to return the resultant value of the instruction
     def get_result(self):
@@ -135,7 +139,7 @@ class ReservationStation:
     # Function to update the values of the RS entries on a CDB broadcast
     def updateEntries(self, arf, robEntry):
         for entry in self._buffer:
-            if entry:
+            if entry and robEntry:
                 if entry._src_tag1 == robEntry.get_name():
                     entry._src_val1 = robEntry.get_value()
                     entry._src_tag1 = "-"

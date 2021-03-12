@@ -131,7 +131,7 @@ class Graphics():
         menu = [
             sg.Menu(
                 menu_definition=[
-                    ['$Load', ['&Load new program', '&Load new data memory']],
+                    ['&Load', ['&Load new program', '&Load new data memory']],
                     ['&Help', ['&Instructions', '&About']]
                 ],
                 key="menu"
@@ -412,7 +412,36 @@ class Graphics():
         if LS_Buffer:
             self.__convertLSBuffer(LS_Buffer)
             window['ls_buffer_table'].update(self._machine_state["Load Store Buffer"]["contents"])
-        
+
+    # Function to reset the machine state in GUI
+    # Used after loading in a new program
+    def resetState(self):
+        self._machine_state = {
+                "Instruction Table": {
+                    "contents": [[""]*6]*5,
+                    "colors": []
+                },
+                "Reservation Station": {
+                    "contents": [["ADD/SUB", "", "", "", "", "", "", ""]]*3 + [["MUL/DIV", "", "", "", "", "", "", ""]]*2,
+                    "colors": []
+                },
+                "ROB": {
+                    "contents": [[""]*4]*2,
+                    "colors": []
+                },
+                "Load Store Buffer": {
+                    "contents": [[""]*5]*2,
+                    "colors": []
+                },
+                "ARF": {
+                    "contents": [f" R{i} " for i in range(0, LIMIT)],
+                    "colors": []
+                },
+                "metadata": {
+                    "cycle": 0
+                }
+            }
+
     # Function to call up the About popup:
     def generateAboutPopup(self):
         contents = f'''
@@ -467,6 +496,9 @@ class Graphics():
             size=(100, 10)
         )
 
+    # Function to load in a new file
+    def generateFileLoader(self, text):
+        return sg.popup_get_file(text)
 
 # Local testing code
 if __name__ == "__main__":

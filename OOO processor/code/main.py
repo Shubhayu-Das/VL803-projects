@@ -24,281 +24,363 @@ import constants
 from gui import Graphics
 
 
-# Load in the program, if no program file is provided
-if len(sys.argv) < 2 or not os.path.exists(sys.argv[2]):
-    program_src = "build/riscv_program.elf"
-else:
-    program_src = sys.argv[2]
+class Tomasulo:
+    def __init__(self, program, data_mem):
+        # Global variables that are needed throughout here
+        self._instructions = []
+        self._historyBuffer = []
+        self._clock_cycle = 0
+        self._next_event = False
+        self._n_complete = 0
 
-# Choose a data sourse
-if len(sys.argv) < 3 or not os.path.exists(sys.argv[3]):
-    data_mem_src = "data_memory.dat"
-else:
-    data_mem_src = sys.argv[3]
+        # Creating objects of the functional components
+        self._ARF = ARF(size=10, init=[12, 16, 45, 5, 3, 4, 1, 2, 2, 3])
 
+        self._ADD_RS = ReservationStation(constants.ADD_SUB, size=3)
+        self._MUL_RS = ReservationStation(constants.MUL_DIV, size=2)
 
-# Global variables that are needed throughout here
-instructions = []
-PC = 0
-next_event = False
-
-# Creating objects of the functional components
-ARFTable = ARF(size=10, init=[12, 16, 45, 5, 3, 4, 1, 2, 2, 3])
-
-ADD_RS = ReservationStation(constants.ADD_SUB, size=3)
-MUL_RS = ReservationStation(constants.MUL_DIV, size=2)
-
-LS_Buffer = LoadStoreBuffer(size=3, memoryFile=data_mem_src)
-ROB = ROBTable(size=8)
+        self._LSQ = LoadStoreBuffer(size=3, memoryFile=data_mem_src)
+        self._ROB = ROBTable(size=8)
 
 
-# Load in the program and create the instruction table accordingly
-# The instruction table is NOT a functional component of the Tomasulo machine
-with open(program_src) as binary:
-    program = binary.readlines()
-    program = [inst.strip() for inst in program]
+        # Load in the program and create the instruction table accordingly
+        # The instruction table is NOT a functional component of the Tomasulo machine
+        with open(program_src) as binary:
+            program = binary.readlines()
+            program = [inst.strip() for inst in program]
 
-    for local_PC, inst in enumerate(program):
-        instructions.append(Instruction.segment(inst, PC=local_PC+1))
+            for local_PC, inst in enumerate(program):
+                self._instructions.append(Instruction.segment(inst, PC=local_PC+1))
 
-instructionTable = InstructionTable(size=min(10, len(instructions)))
+        self._instructionTable = InstructionTable(size=min(10, len(self._instructions)))
 
-for instruction in instructions:
-    instructionTable.add_entry(instruction)
+        for instruction in self._instructions:
+            self._instructionTable.add_entry(instruction)
 
+    #-------------------------------------------------------------------------------#
+    # Functions to implement each stage of the pipeline
+    #-------------------------------------------------------------------------------#
 
-#-------------------------------------------------------------------------------#
-# Functions to implement each stage of the pipeline
-#-------------------------------------------------------------------------------#
+    # Function to try and dispatch next instruction if corresponding RS is free
+    # Updates all relevant source mappings too
+    def tryDispatch(self, robEntry):
+        for it_entry in self._instructionTable.get_entries():
+            if it_entry.get_state() == constants.RunState.NOT_STARTED:
+                instruction = it_entry.get_inst()
+                instruction_type = instruction.disassemble()["command"]
 
+                RS = None
 
-# Function to try and dispatch next instruction if corresponding RS is free
-# Updates all relevant source mappings too
-def tryDispatch():
-    global next_event
-    for it_entry in instructionTable.get_entries():
-        if it_entry.get_state() == constants.RunState.NOT_STARTED:
-            instruction = it_entry.get_inst()
-            instruction_type = instruction.disassemble()["command"]
+                if instruction_type in ["ADD", "SUB"]:
+                    RS = self._ADD_RS
+                elif instruction_type in ["MUL", "DIV"]:
+                    RS = self._MUL_RS
+                elif instruction_type in ["LW", "SW"]:
+                    RS = self._LSQ
 
-            RS = None
+                if RS:
+                    if not RS.is_busy():
+                        if RS.add_entry(instruction, self._ARF):
+                            destination = self._ARF.get_register(it_entry._instruction.rd)
+                            destination.set_link(self._ROB.add_entry(it_entry._instruction, destination))
+                            
+                            if RS in [self._ADD_RS, self._MUL_RS]:
+                                RS.updateEntries(self._ARF, robEntry)
 
-            if instruction_type in ["ADD", "SUB"]:
-                RS = ADD_RS
-            elif instruction_type in ["MUL", "DIV"]:
-                RS = MUL_RS
-            elif instruction_type in ["LW", "SW"]:
-                RS = LS_Buffer
+                            it_entry.rs_issue(self._clock_cycle)
+                            self._next_event = True
 
-            if RS:
-                if not RS.is_busy():
-                    if RS.add_entry(instruction, ARFTable):
-                        destination = ARFTable.get_register(it_entry._instruction.rd)
-                        destination.set_link(ROB.add_entry(it_entry._instruction, destination))
-
-                        it_entry.rs_issue(PC)
-                        next_event = True
-
-                    break
-
-
-# Function to simulate the execution of the process. This includes dispatching
-# instructions and handling their execution steps
-def tryExecute():
-    global next_event
-    for RS in [LS_Buffer, ADD_RS, MUL_RS]:
-        for rs_entry in RS.get_entries():
-            if rs_entry:
-                it_entry = instructionTable.get_entry(rs_entry._instruction)
-
-                if it_entry.get_state() == constants.RunState.RS and rs_entry.is_executeable():                    
-                    it_entry.ex_start(PC)
-                    it_entry.update_result(rs_entry.get_result())
-                    RS.remove_entry(rs_entry.get_inst())
-
-                    next_event = True
-                    break
-
-    for it_entry in instructionTable.get_entries():
-        if it_entry.get_state() == constants.RunState.EX_START:
-            it_entry.ex_tick(PC)
+                        break
 
 
-# Function to perform the CDB broadcast, when an instruction has completed executing
-def tryCDBBroadcast():
-    global next_event
-    for it_entry in instructionTable.get_entries():
-        if it_entry.get_state() == constants.RunState.EX_END:
-            it_entry.cdb_write(PC)
-            
-            value = it_entry.get_result()
-            robEntry = ROB.update_value(it_entry.get_inst(), value)
+    # Function to simulate the execution of the process. This includes dispatching
+    # self._instructions and handling their execution steps
+    def tryExecute(self):
+        for RS in [self._LSQ, self._ADD_RS, self._MUL_RS]:
+            for rs_entry in RS.get_entries():
+                if rs_entry:
+                    it_entry = self._instructionTable.get_entry(rs_entry._instruction)
 
-            if robEntry:
-                for RS in [ADD_RS, MUL_RS]:
-                    RS.updateEntries(ARFTable, robEntry)
+                    if it_entry.get_state() == constants.RunState.RS and rs_entry.is_executeable():                    
+                        it_entry.ex_start(self._clock_cycle)
+                        it_entry.update_result(rs_entry.get_result())
+                        RS.remove_entry(rs_entry.get_inst())
 
-            next_event = True
+                        self._next_event = True
+                        break
+
+        for it_entry in self._instructionTable.get_entries():
+            if it_entry.get_state() == constants.RunState.EX_START:
+                it_entry.ex_tick(self._clock_cycle)
+
+
+    # Function to perform the CDB broadcast, when an instruction has completed executing
+    def tryCDBBroadcast(self):
+        for it_entry in self._instructionTable.get_entries():
+            if it_entry.get_state() == constants.RunState.EX_END:
+                it_entry.cdb_write(self._clock_cycle)
+                
+                value = it_entry.get_result()
+                robEntry = self._ROB.update_value(it_entry.get_inst(), value)
+
+                if robEntry:
+                    for RS in [self._ADD_RS, self._MUL_RS]:
+                        RS.updateEntries(self._ARF, robEntry)
+
+                self._next_event = True
+                return robEntry
+
+
+    # Function to commit the result of an instruction, if it has completed CDB broadcast
+    # and is at the tail of the self._ROB
+    def tryCommit(self):
+        for it_entry in self._instructionTable.get_entries():
+            if it_entry.get_state() == constants.RunState.COMMIT:
+                continue
+            elif it_entry.get_state() == constants.RunState.CDB:
+                robEntry = self._ROB.remove_entry()
+                if robEntry:
+                    it_entry.commit(self._clock_cycle)
+                    self._ARF.update_register(robEntry)
+
+                self._next_event = True
+                self._n_complete += 1
+            break
+
+
+    # Function to call all the above function, while updating the program counter
+    def logic_loop(self):
+        if self._n_complete == len(self._instructions):
             return
+        
+        self._clock_cycle += 1
+        
+        if constants.DEBUG:
+            print(self._clock_cycle)
+        
+        # Execute each of the steps in reverse-pipeline order
+        # The reverse order is to make sure that the previous instruction completes its stages
+        self.tryCommit()
+        robEntry = self.tryCDBBroadcast()
+        self.tryExecute()
+
+        # This is needed because I am dispatching after broadcasting.
+        # This is a race condition effectively
+        self.tryDispatch(robEntry)
+
+        # Update the changes into the history buffer
+        self._historyBuffer.append([
+            copy.deepcopy(self._instructionTable),
+            copy.deepcopy(self._ROB),
+            {
+                constants.ADD_SUB: copy.deepcopy(self._ADD_RS),
+                constants.MUL_DIV: copy.deepcopy(self._MUL_RS)
+            },
+            copy.deepcopy(self._ARF),
+            copy.deepcopy(self._LSQ),
+            copy.deepcopy(self._next_event)
+        ])
+
+    # Reset the flag variable that indicates a change in machine state
+    def reset_next_event(self):
+        self._next_event = False
+
+    # Return the flag that indicates that the machine state has changed
+    def next_event_occured(self):
+        return self._next_event
+
+    # Get the cycle-by-cycle execution history of the machine
+    def get_history(self):
+        return self._historyBuffer
+
+    # Get the CPU clock cycle
+    def get_cpu_clock(self):
+        return self._clock_cycle
+
+    # Get the instruction table object
+    def get_instruction_table(self):
+        return self._instructionTable
+
+    # Get the ROB object
+    def get_rob(self):
+        return self._ROB
+
+    # Get all the RS objects
+    def get_all_rs(self):
+        return {
+            constants.ADD_SUB: self._ADD_RS,
+            constants.MUL_DIV: self._MUL_RS
+        }
+
+    # Get the ARF object
+    def get_arf(self):
+        return self._ARF
+
+    # Get the load/store buffer object
+    def get_lsq(self):
+        return self._LSQ
 
 
-# Function to commit the result of an instruction, if it has completed CDB broadcast
-# and is at the tail of the ROB
-def tryCommit():
-    global next_event
-    for it_entry in instructionTable.get_entries():
-        if it_entry.get_state() == constants.RunState.COMMIT:
-            continue
-        elif it_entry.get_state() == constants.RunState.CDB:
-            robEntry = ROB.remove_entry()
-            if robEntry:
-                it_entry.commit(PC)
-                ARFTable.update_register(robEntry)
+if __name__ == "__main__":
+    # Load in the program, if no program file is provided
+    if len(sys.argv) < 2 or not os.path.exists(sys.argv[1]):
+        program_src = "build/riscv_program.elf"
+    else:
+        program_src = sys.argv[1]
 
-            next_event = True
-        break
+    # Choose a data sourse
+    if len(sys.argv) < 3 or not os.path.exists(sys.argv[2]):
+        data_mem_src = "data_memory.dat"
+    else:
+        data_mem_src = sys.argv[2]
 
-
-# Function to call all the above function, while updating the program counter
-def logic_loop():
-    global PC, ADD_RS, MUL_RS, instructionTable, ROB, ARFTable, LS_Buffer, next_event
-    PC += 1
-    
-    if constants.DEBUG:
-        print(PC)
-    
-    # Execute each of the steps in reverse-pipeline order
-    # The reverse order is to make sure that the previous instruction completes its stages
-    tryCommit()
-    tryCDBBroadcast()
-    tryExecute()
-    tryDispatch()
-
-    # Update the changes into the history buffer
-    historyBuffer.append([
-        copy.deepcopy(instructionTable),
-        copy.deepcopy(ROB),
-        {
-            constants.ADD_SUB: copy.deepcopy(ADD_RS),
-            constants.MUL_DIV: copy.deepcopy(MUL_RS)
-        },
-        copy.deepcopy(ARFTable),
-        copy.deepcopy(LS_Buffer),
-        copy.deepcopy(next_event)
-    ])
-    
+    # Create the Tomasulo machine object
+    machine = Tomasulo(program_src, data_mem_src)
 
 #-------------------------------------------------------------------------------#
-# GUI related things, with event loop, which updates the processor in every clock PC
+# GUI related things, with event loop, which updates the processor in every clock self._clock_cycle
 #-------------------------------------------------------------------------------#
 
-RUN = False
-backwards = 0
-historyBuffer = []
-frameDuration = constants.CYCLE_DURATION
+    RUN = False
+    backwards = 0
+    frameDuration = constants.CYCLE_DURATION
 
-GUI = Graphics()
-window = GUI.generateWindow()
+    GUI = Graphics()
+    window = GUI.generateWindow()
 
-# Main event loop
-while True:
-    event, values = window.read(timeout=frameDuration)
-    done = False
+    # Main event loop
+    while True:
+        event, values = window.read(timeout=frameDuration)
+        done = False
 
-    if event == sg.WIN_CLOSED:
-        break
+        if event == sg.WIN_CLOSED or machine.get_cpu_clock() > 1000:
+            break
 
-    elif event == "About":
-        RUN = False
-        window["pause_button"].update(text="Continue")
-
-        GUI.generateAboutPopup()
-
-    elif event == "Instructions":
-        RUN = False
-        window["pause_button"].update(text="Continue")
-
-        GUI.generateInstructionPopup()
-
-    elif event == "pause_button":
-        if RUN:
+        elif event == "About":
+            RUN = False
             window["pause_button"].update(text="Continue")
-        else:
-            window["pause_button"].update(text="  Pause  ")
-    
-        RUN = not RUN
 
-    elif event in ["previous_button", "next_button"] and not RUN:
+            GUI.generateAboutPopup()
 
-        if backwards < PC and event == "previous_button":
-            backwards += 1
-        if backwards < PC and event == "next_button":
-            backwards -= 1
+        elif event == "Instructions":
+            RUN = False
+            window["pause_button"].update(text="Continue")
 
-        index = PC - backwards
+            GUI.generateInstructionPopup()
 
-        if index < len(historyBuffer) and index != 0:
-            GUI.updateContents(
-                window,
-                index + 1,
-                historyBuffer[index][0],
-                historyBuffer[index][1],
-                resStats=historyBuffer[index][2],
-                ARF=historyBuffer[index][3],
-                LS_Buffer=historyBuffer[index][4]
-            )
+        elif event == "pause_button":
+            if RUN:
+                window["pause_button"].update(text="Continue")
+            else:
+                window["pause_button"].update(text="  Pause  ")
+        
+            RUN = not RUN
 
-            done = True
+        elif event in ["previous_button", "next_button"] and not RUN:
 
-    elif event == "next_event_button":
-        if RUN:
-            while not next_event:
-                logic_loop()
-            next_event = False
-      
-    if RUN or (not RUN and not done and event in ["next_button", "next_event_button"]):
-        # Reset the history/step controls
-        if backwards > 1:
-            index = PC - backwards
+            if backwards < machine.get_cpu_clock() and event == "previous_button":
+                backwards += 1
+            if backwards < machine.get_cpu_clock() and event == "next_button":
+                backwards -= 1
 
-            if event == "next_event_button":
-                while not historyBuffer[index][5]:
-                    backwards -= 1
-                    index = PC - backwards
+            index = machine.get_cpu_clock() - backwards
+            history = machine.get_history()
 
-            GUI.updateContents(
-                window,
-                index + 1,
-                historyBuffer[index][0],
-                historyBuffer[index][1],
-                resStats=historyBuffer[index][2],
-                ARF=historyBuffer[index][3],
-                LS_Buffer=historyBuffer[index][4]
-            )
+            if index < len(history) and index != 0:
+                GUI.updateContents(
+                    window,
+                    index + 1,
+                    history[index][0],
+                    history[index][1],
+                    resStats=history[index][2],
+                    ARF=history[index][3],
+                    LS_Buffer=history[index][4]
+                )
 
-            backwards -= 1
+                done = True
 
-        else:
-            if event == "next_event_button":
-                while not next_event:
-                    logic_loop()
-                next_event = False
-            
-            # Run the processor for one clock cycle
-            logic_loop()
-            
-            # Render the contents to the GUI
-            GUI.updateContents(
-                window,
-                PC,
-                instructionTable,
-                ROB,
-                {
-                    constants.ADD_SUB: ADD_RS,
-                    constants.MUL_DIV: MUL_RS
-                },
-                ARFTable,
-                LS_Buffer
-            )
+        elif event == "next_event_button":
+            if RUN:
+                while not machine.next_event_occured():
+                    machine.logic_loop()
+                machine.reset_next_event()
+        
+        elif event in ["Load new program", "Load new data memory"] and not RUN:
+            if event == "Load new program":
+                filename = GUI.generateFileLoader("Enter program file(.elf format only)")
+            else:
+                filename = GUI.generateFileLoader("Enter program file(.dat format only)")
 
-window.close()
+            if filename:
+                if event == "Load new program" and filename.split('.')[-1] != "elf":
+                    sg.popup_error("Invalid file format!")
+                elif event == "Load new data memory" and filename.split('.')[-1] != "dat":
+                    sg.popup_error("Invalid file format!")
+
+                else:
+                    if event == "Load new program":
+                        program_src = filename
+                    else:
+                        data_mem_src = filename
+
+                    machine = Tomasulo(program_src, data_mem_src)
+                    backwards = 0
+
+                    GUI.resetState()
+                    GUI.updateContents(
+                        window,
+                        machine.get_cpu_clock(),
+                        machine.get_instruction_table(),
+                        machine.get_rob(),
+                        machine.get_all_rs(),
+                        machine.get_arf(),
+                        machine.get_lsq()
+                    )
+
+                    window.read(timeout=1)
+                    window["pause_button"].update(text="Start")
+
+        if RUN or (not RUN and not done and event in ["next_button", "next_event_button"]):
+            # Reset the history/step controls
+            if backwards > 1:
+                index = machine.get_cpu_clock() - backwards
+                history = machine.get_history()
+
+                if event == "next_event_button":
+                    while not history[index][5]:
+                        backwards -= 1
+                        index = self._clock_cycle - backwards
+
+                GUI.updateContents(
+                    window,
+                    index + 1,
+                    history[index][0],
+                    history[index][1],
+                    resStats=history[index][2],
+                    ARF=history[index][3],
+                    LS_Buffer=history[index][4]
+                )
+
+                backwards -= 1
+
+            else:
+                if event == "next_event_button":
+                    while not machine.next_event_occured():
+                        machine.logic_loop()
+                    machine.reset_next_event()
+                else:
+                    # Run the processor for one clock cycle
+                    machine.logic_loop()
+                
+                # Render the contents to the GUI
+                GUI.updateContents(
+                    window,
+                    machine.get_cpu_clock(),
+                    machine.get_instruction_table(),
+                    machine.get_rob(),
+                    machine.get_all_rs(),
+                    machine.get_arf(),
+                    machine.get_lsq()
+                )
+
+    window.close()

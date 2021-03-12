@@ -17,6 +17,7 @@ def split_operands(program):
     program = list(filter(None, program))
     program = [re.split(",|\ ", inst.strip()) for inst in program]
     program = [[word.upper().replace('X', '') for word in inst if word] for inst in program]
+    program = [inst for inst in program if inst]
 
     return program
 
@@ -95,9 +96,10 @@ def assembler(filename):
             if idx < len(assembly) - 1:
                 destFile.write("\n")
 
+    return f"build/{outFile}"
 
 # Check if a program was fed it, otherwise use a default
 if len(sys.argv) < 2:
-    assembler("src/riscv_program.asm")
+    print(f"Output generated to: {assembler('src/riscv_program.asm')}")
 else:
-    assembler(sys.argv[2])
+    print(f"Output generated to: {assembler(sys.argv[1])}")

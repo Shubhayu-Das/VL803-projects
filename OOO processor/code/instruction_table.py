@@ -29,7 +29,7 @@ class InstructionTableEntry:
         self._cdb_write = ""
         self._commit = ""
         self._counter = 0
-        self._max_ticks = NumCycles[instruction.disassemble()["command"]] - 1
+        self._max_ticks = NumCycles[instruction.disassemble()["command"]]
         self._value = None
 
     # Function to record the issue of an instruction into the RS
