@@ -23,19 +23,19 @@ class Graphics():
         else:
             self._machine_state = {
                 "Instruction Table": {
-                    "contents": [[""]*6]*5,
+                    "contents": [[""] * 6] * 5,
                     "colors": []
                 },
                 "Reservation Station": {
-                    "contents": [["ADD/SUB", "", "", "", "", "", "", ""]]*3 + [["MUL/DIV", "", "", "", "", "", "", ""]]*2,
+                    "contents": [["ADD/SUB", "", "", "", "", "", "", ""]] * 3 + [["MUL/DIV", "", "", "", "", "", "", ""]] * 2,
                     "colors": []
                 },
                 "ROB": {
-                    "contents": [[""]*4]*2,
+                    "contents": [[""] * 4] * 2,
                     "colors": []
                 },
                 "Load Store Buffer": {
-                    "contents": [[""]*5]*2,
+                    "contents": [[""] * 5] * 2,
                     "colors": []
                 },
                 "ARF": {
@@ -55,13 +55,13 @@ class Graphics():
 
         if len(row_contents) > n_rows:
             hide_vertical_scroll = False
-        
+
         table = sg.Table(
             values=row_contents,
             headings=headings,
             hide_vertical_scroll=hide_vertical_scroll,
-            def_col_width=int(self._font_size/2),
-            row_height=2*(self._font_size+1),
+            def_col_width=int(self._font_size / 2),
+            row_height=2 * (self._font_size + 1),
             justification="center",
             num_rows=n_rows,
             row_colors=row_colors,
@@ -79,9 +79,9 @@ class Graphics():
     # Function to generate the overall layout, with some dummy initial content
     def generateLayout(self):
         width, height = sg.Window.get_screen_size()
-        aspect_ratio = width/height
+        aspect_ratio = width / height
 
-        if aspect_ratio < 16/9:
+        if aspect_ratio < 16 / 9:
             self._font_size = 14
 
         mainHeading = [sg.Text(
@@ -97,12 +97,12 @@ class Graphics():
             layout=[[sg.Text(
                     text=self._machine_state["metadata"]["cycle"],
                     key="cycle_number",
-                    size=(4,1),
+                    size=(4, 1),
                     text_color="black",
                     font=f"Times {self._font_size+2}",
-                )]],
+                    )]],
             title_location=sg.TITLE_LOCATION_TOP,
-            element_justification = "center",
+            element_justification="center",
         )]
 
         # Extract the content of each of the tables, from the machine's state
@@ -160,17 +160,17 @@ class Graphics():
             key="reserve_station"
         )
         ROBTable = self.__generateTable("ROB",
-                ROB,
-                robHeading,
-                n_rows=8,
-                key="rob"
-        )
+                                        ROB,
+                                        robHeading,
+                                        n_rows=8,
+                                        key="rob"
+                                        )
         ARFTable = self.__generateTable("ARF",
-                ARF,
-                arfHeading,
-                n_rows=LIMIT,
-                key="arf"
-        )
+                                        ARF,
+                                        arfHeading,
+                                        n_rows=LIMIT,
+                                        key="arf"
+                                        )
         CycleInfoTable = self.__generateTable(
             "No. of Cycles",
             nCycles,
@@ -206,7 +206,7 @@ class Graphics():
             layout=[pauseButton, nextButton + prevButton, nextEventButton],
             title_location=sg.TITLE_LOCATION_TOP,
             element_justification="center",
-            pad=(2*self._font_size, 2*self._font_size)
+            pad=(2 * self._font_size, 2 * self._font_size)
         )]
 
         # Arrange the components into 3 different blocks, depending on screen resolution
@@ -217,7 +217,7 @@ class Graphics():
             key="layout_col1"
         )]
 
-        if aspect_ratio >= 16/9:
+        if aspect_ratio >= 16 / 9:
             col2 = [sg.Column(
                 [instructionTable, loadStoreBufferTable, reservationStationTable],
                 element_justification="center",
@@ -234,13 +234,14 @@ class Graphics():
         else:
             allowScroll = True
             col2 = [sg.Column(
-                [instructionTable, loadStoreBufferTable, reservationStationTable, ARFTable + ROBTable],
+                [instructionTable, loadStoreBufferTable,
+                    reservationStationTable, ARFTable + ROBTable],
                 element_justification="center",
                 expand_x=True,
                 key="layout_col2"
             )]
             col3 = []
-        
+
         # Generate the final layout, by combining the individual columns
         displayLayout = [[
             sg.Column(
@@ -269,7 +270,7 @@ class Graphics():
             self.generateLayout(),
             font=f"Times {self._font_size}",
             size=sg.Window.get_screen_size(),
-            element_padding=(int(self._font_size/2), int(self._font_size/2)),
+            element_padding=(int(self._font_size / 2), int(self._font_size / 2)),
             margins=(self._font_size, self._font_size),
             text_justification="center",
             resizable=True,
@@ -282,7 +283,7 @@ class Graphics():
         colors = []
         for entry in instructionTable._entries:
             data = []
-            
+
             data.append(entry._instruction.str_disassemble())
             data.append(str(entry._rs_issue_cycle))
             data.append(str(entry._exec_start))
@@ -321,7 +322,7 @@ class Graphics():
         colors = []
         for name, entry in rob.get_entries().items():
             data = []
-            if entry == None:
+            if entry is None:
                 data = [name] + [""] * 3
             else:
                 data.append(name)
@@ -345,13 +346,13 @@ class Graphics():
                 if entry:
                     data.append(name)
                     data.append(entry._instruction.str_disassemble())
-                    
+
                     data.append(str(entry._busy)[0])
                     data.append(entry._dest)
 
                     data.append(entry._src_tag1)
                     data.append(entry._src_tag2)
-                    
+
                     data.append(str(entry._src_val1))
                     data.append(str(entry._src_val2))
                 else:
@@ -372,7 +373,7 @@ class Graphics():
             data = []
             if entry:
                 data.append(entry.get_inst().str_disassemble())
-                
+
                 data.append(str(entry.is_busy())[0])
                 data.append(entry._dest)
 
@@ -391,19 +392,22 @@ class Graphics():
     # Function to call the individual update blocks. This function is called from the main event loop
     def updateContents(self, window, cycle, instructionTable=None, ROB=None, resStats=None, ARF=None, LS_Buffer=None):
         self._machine_state["metadata"]["cycle"] = cycle
-        window["cycle_number"].update(value=self._machine_state["metadata"]["cycle"])
+        window["cycle_number"].update(
+            value=self._machine_state["metadata"]["cycle"])
 
         if instructionTable:
             self.__convertInstructionTable(instructionTable)
-            window['inst_table'].update(self._machine_state["Instruction Table"]["contents"])
-        
+            window['inst_table'].update(
+                self._machine_state["Instruction Table"]["contents"])
+
         if ROB:
             self.__convertROB(ROB)
             window['rob'].update(self._machine_state["ROB"]["contents"])
 
         if resStats:
             self.__convertReservationStation(resStats)
-            window['reserve_station'].update(self._machine_state["Reservation Station"]["contents"])
+            window['reserve_station'].update(
+                self._machine_state["Reservation Station"]["contents"])
 
         if ARF:
             self.__convertARF(ARF)
@@ -411,36 +415,37 @@ class Graphics():
 
         if LS_Buffer:
             self.__convertLSBuffer(LS_Buffer)
-            window['ls_buffer_table'].update(self._machine_state["Load Store Buffer"]["contents"])
+            window['ls_buffer_table'].update(
+                self._machine_state["Load Store Buffer"]["contents"])
 
     # Function to reset the machine state in GUI
     # Used after loading in a new program
     def resetState(self):
         self._machine_state = {
-                "Instruction Table": {
-                    "contents": [[""]*6]*5,
-                    "colors": []
-                },
-                "Reservation Station": {
-                    "contents": [["ADD/SUB", "", "", "", "", "", "", ""]]*3 + [["MUL/DIV", "", "", "", "", "", "", ""]]*2,
-                    "colors": []
-                },
-                "ROB": {
-                    "contents": [[""]*4]*2,
-                    "colors": []
-                },
-                "Load Store Buffer": {
-                    "contents": [[""]*5]*2,
-                    "colors": []
-                },
-                "ARF": {
-                    "contents": [f" R{i} " for i in range(0, LIMIT)],
-                    "colors": []
-                },
-                "metadata": {
-                    "cycle": 0
-                }
+            "Instruction Table": {
+                "contents": [[""] * 6] * 5,
+                "colors": []
+            },
+            "Reservation Station": {
+                "contents": [["ADD/SUB", "", "", "", "", "", "", ""]] * 3 + [["MUL/DIV", "", "", "", "", "", "", ""]] * 2,
+                "colors": []
+            },
+            "ROB": {
+                "contents": [[""] * 4] * 2,
+                "colors": []
+            },
+            "Load Store Buffer": {
+                "contents": [[""] * 5] * 2,
+                "colors": []
+            },
+            "ARF": {
+                "contents": [f" R{i} " for i in range(0, LIMIT)],
+                "colors": []
+            },
+            "metadata": {
+                "cycle": 0
             }
+        }
 
     # Function to call up the About popup:
     def generateAboutPopup(self):
@@ -465,23 +470,23 @@ class Graphics():
         1. This program is a cycle-by-cycle simulation of the Tomasulo Out Of Order Machine, used in the IBM 360/91
 
         2. Each of the main components is assigned its own display table. If the tables are too long, they will have scrollbars
-        
+
         3. The GUI scales and adjusts according to your screen resolution, Best results are obtained at 1920x1080 and 1440x900.
-        
+
         4. The GUI is interactive, the behaviour can be controlled using the buttons in the Control Panel on the left
-        
+
         5. To single step through the clock cycles of the simulation, use the previous and next buttons. It is recommended that you\
         pause the simulation before this.
-        
+
         6. To start the simulation, click on the "Start" button. The button will change to a pause button after this.
-        
+
         7. To pause the simulation, click on the "Pause" button; after this the button will change to a continue button. Clicking it\
         will continue executing the simulation.
-        
+
         8. Some executions can take a while, with nothing noticeable happening. To skip to the next cycle, where one of the components\
         have a change, click on the "Next Event" button. This button can be used irrespective of whether the simulation is running\
         or is paused.
-        
+
         9. There are some known bugs in the GUI. Refer to the README for more details
         '''
 
@@ -490,7 +495,7 @@ class Graphics():
             title="Instructions of use",
             non_blocking=True,
             grab_anywhere=True,
-            background_color = 'white',
+            background_color='white',
             text_color="black",
             font=f"Times {self._font_size}",
             size=(100, 10)
@@ -499,6 +504,7 @@ class Graphics():
     # Function to load in a new file
     def generateFileLoader(self, text):
         return sg.popup_get_file(text)
+
 
 # Local testing code
 if __name__ == "__main__":

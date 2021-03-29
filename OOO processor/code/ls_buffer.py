@@ -14,7 +14,7 @@ from constants import DEBUG
 from instruction import Instruction
 
 
-# Data structure to represent every entry in the load/store buffer 
+# Data structure to represent every entry in the load/store buffer
 class LoadStoreBufferEntry:
     def __init__(self, instr, ARFTable, memory):
         self._instruction = instr
@@ -77,7 +77,7 @@ class LoadStoreBuffer:
         while(counter < self._size):
             self._index = (self._index + 1) % self._size
             if self._buffer[self._index] is None:
-                    break
+                break
             else:
                 counter += 1
 
