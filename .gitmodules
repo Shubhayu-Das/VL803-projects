@@ -1,3 +1,6 @@
 [submodule "PA_Champsim_assignment"]
 	path = PA_Champsim_assignment
 	url = https://github.com/vsdevaraddi/PA_Champsim_assignment
+[submodule "tomasulo-O3-with-prefetch"]
+	path = tomasulo-O3-with-prefetch
+	url = https://github.com/Shubhayu-Das/tomasulo-O3-with-prefetch

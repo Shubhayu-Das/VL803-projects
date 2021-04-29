@@ -13,6 +13,9 @@ replacement. We had a choice between the ChampSim/gem5 simulators. This was a gr
 present in a submodule repo. We chose to use ChampSim, because we deemed it to be enough for testing the algorithms that
 we implemented.
 
+### Literature survey
+In this, I read the paper on SRRIP and DRRIP. See the README, in the corresponding folder for details.
+
 ### Third assignment
 The third assignment builds on top of the first one, by optionally adding caches/branch predictors/prefetchers. We could
 work on designing a brand new vector processor, but I intend to make my existing program a finished product, which can
