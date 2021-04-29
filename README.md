@@ -16,4 +16,4 @@ we implemented.
 ### Third assignment
 The third assignment builds on top of the first one, by optionally adding caches/branch predictors/prefetchers. We could
 work on designing a brand new vector processor, but I intend to make my existing program a finished product, which can
-be used for a lot of things.
+be used for a lot of things. I did this project in a group. For more details, take a look at the relevant folder.
